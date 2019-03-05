@@ -52,7 +52,7 @@ int main(int argc, char *argv[])
 
 	glViewport(0, 0, 640, 360);
 
-	// For non-textured polygons
+	// For untextured polygons
 	ShaderProgram program;
 	program.Load(RESOURCE_FOLDER"vertex.glsl", RESOURCE_FOLDER"fragment.glsl");
 
@@ -71,11 +71,7 @@ int main(int argc, char *argv[])
 	glm::mat4 viewMatrix = glm::mat4(1.0f);
 	projectionMatrix = glm::ortho(-1.777f, 1.777f, -1.0f, 1.0f, -1.0f, 1.0f);
 	
-	// Use the non-textured shader program (for now)
-	glUseProgram(program.programID);
-
-	// Set background color to light yellow
-	glClearColor(1.0f, 1.0f, 0.88f, 1.0f);
+	glClearColor(1.0f, 1.0f, 0.88f, 1.0f); // Set background color to light yellow
 
 	// "Blend" textures so their background doesn't show
 	glEnable(GL_BLEND);
@@ -91,55 +87,75 @@ int main(int argc, char *argv[])
         }
 		glClear(GL_COLOR_BUFFER_BIT);
 
-		// Untextured
-		
-		glDisableVertexAttribArray(program.positionAttribute);
-		glDisableVertexAttribArray(program.texCoordAttribute);
+		// Untextured polygons
+		glUseProgram(program.programID); // Use the shader program for untextured polygons
 
-		// Textured
-		glUseProgram(texturedProgram.programID);
+		program.SetModelMatrix(modelMatrix);
+		program.SetProjectionMatrix(projectionMatrix);
+		program.SetViewMatrix(viewMatrix);
+
+		// Create a triangle polygon
+		float triangleVertices[] = { 0.5f, -0.5f, 0.0f, 0.5f, -0.5f, -0.5f };
+		glVertexAttribPointer(program.positionAttribute, 2, GL_FLOAT, false, 0, triangleVertices);
+		glEnableVertexAttribArray(program.positionAttribute);
+
+		// First triangle
+		program.SetColor(0.2f, 0.8f, 0.4f, 1.0f); // Green
+
+		modelMatrix = glm::mat4(1.0f);
+		modelMatrix = glm::translate(modelMatrix, glm::vec3(-1.277f, -0.5f, 0.0f));
+		program.SetModelMatrix(modelMatrix);
+		glDrawArrays(GL_TRIANGLES, 0, 3);
+		
+		// Second triangle
+		program.SetColor(1.0f, 0.0f, 0.0f, 1.0f); // Red
+
+		modelMatrix = glm::mat4(1.0f);
+		modelMatrix = glm::translate(modelMatrix, glm::vec3(1.277f, -0.5f, 0.0f));
+		program.SetModelMatrix(modelMatrix);
+		glDrawArrays(GL_TRIANGLES, 0, 3);
+
+		glDisableVertexAttribArray(program.positionAttribute);
+
+		// Textured polygons
+		glUseProgram(texturedProgram.programID); // Use the shader program for textured polygons
 
 		texturedProgram.SetModelMatrix(modelMatrix);
 		texturedProgram.SetProjectionMatrix(projectionMatrix);
 		texturedProgram.SetViewMatrix(viewMatrix);
 
-		// Render cherry texture
-		glBindTexture(GL_TEXTURE_2D, cherryTexture);
-
+		// Create a square polygon (made up of 2 triangles)
 		float vertices[] = { -0.5, -0.5, 0.5, -0.5, 0.5, 0.5, -0.5, -0.5, 0.5, 0.5, -0.5, 0.5 };
 		glVertexAttribPointer(texturedProgram.positionAttribute, 2, GL_FLOAT, false, 0, vertices);
 		glEnableVertexAttribArray(texturedProgram.positionAttribute);
 
+		// Create a square texture to map onto the square polygon (also made up of 2 triangles)
 		float texCoords[] = { 0.0, 1.0, 1.0, 1.0, 1.0, 0.0, 0.0, 1.0, 1.0, 0.0, 0.0, 0.0 };
 		glVertexAttribPointer(texturedProgram.texCoordAttribute, 2, GL_FLOAT, false, 0, texCoords);
 		glEnableVertexAttribArray(texturedProgram.texCoordAttribute);
 
+		// Render cherry texture
+		glBindTexture(GL_TEXTURE_2D, cherryTexture);
+
+		modelMatrix = glm::mat4(1.0f);
+		modelMatrix = glm::translate(modelMatrix, glm::vec3(0.0f, -0.5f, 0.0f));
+		texturedProgram.SetModelMatrix(modelMatrix);
 		glDrawArrays(GL_TRIANGLES, 0, 6);
 
 		// Render mouse texture
 		glBindTexture(GL_TEXTURE_2D, mouseTexture);
 
-		float vertices1[] = { -0.5, -0.5, 0.5, -0.5, 0.5, 0.5, -0.5, -0.5, 0.5, 0.5, -0.5, 0.5 };
-		glVertexAttribPointer(texturedProgram.positionAttribute, 2, GL_FLOAT, false, 0, vertices1);
-		glEnableVertexAttribArray(texturedProgram.positionAttribute);
-
-		float texCoords1[] = { 0.0, 1.0, 1.0, 1.0, 1.0, 0.0, 0.0, 1.0, 1.0, 0.0, 0.0, 0.0 };
-		glVertexAttribPointer(texturedProgram.texCoordAttribute, 2, GL_FLOAT, false, 0, texCoords1);
-		glEnableVertexAttribArray(texturedProgram.texCoordAttribute);
-
+		modelMatrix = glm::mat4(1.0f);
+		modelMatrix = glm::translate(modelMatrix, glm::vec3(-0.75f, 0.5f, 0.0f));
+		texturedProgram.SetModelMatrix(modelMatrix);
 		glDrawArrays(GL_TRIANGLES, 0, 6);
 
 		// Render mushroom texture
 		glBindTexture(GL_TEXTURE_2D, mushroomTexture);
 
-		float vertices2[] = { -0.5, -0.5, 0.5, -0.5, 0.5, 0.5, -0.5, -0.5, 0.5, 0.5, -0.5, 0.5 };
-		glVertexAttribPointer(texturedProgram.positionAttribute, 2, GL_FLOAT, false, 0, vertices2);
-		glEnableVertexAttribArray(texturedProgram.positionAttribute);
-
-		float texCoords2[] = { 0.0, 1.0, 1.0, 1.0, 1.0, 0.0, 0.0, 1.0, 1.0, 0.0, 0.0, 0.0 };
-		glVertexAttribPointer(texturedProgram.texCoordAttribute, 2, GL_FLOAT, false, 0, texCoords2);
-		glEnableVertexAttribArray(texturedProgram.texCoordAttribute);
-
+		modelMatrix = glm::mat4(1.0f);
+		modelMatrix = glm::translate(modelMatrix, glm::vec3(0.75f, 0.5f, 0.0f));
+		texturedProgram.SetModelMatrix(modelMatrix);
 		glDrawArrays(GL_TRIANGLES, 0, 6);
 
 		// Disable vertex atributes
