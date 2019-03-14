@@ -74,57 +74,138 @@ int main(int argc, char *argv[])
 	// Set time to an initial value of 0
 	float lastFrameTicks = 0.0f;
 
-	// Set y-coordinates of user and AI paddles
+	// Game attributes
+	bool isGameOver = false;
+	bool playerWon;
+	float distancePerSecond = 1.0f; // Set the movement speed of the paddles and ball
+
+	// Set user and AI paddle attributes
 	float userPaddleY = 0.0f;
 	float aiPaddleY = 0.0f;
+	bool aiPaddleGoingUp = true; // Default value
+	const float paddleWidth = 0.1f;
+	const float paddleHeight = 0.5f;
+	const float paddleOffsetX = 1.5f;
 
-	bool aiPaddleGoingUp = true; // Go up by default
+	// Set ball attributes
+	float ballX = 0.0f;
+	float ballY = 0.0f;
+	bool isBallGoingUp = true; // Default value
+	bool isBallGoingRight = true; // Default value
+	const float ballRadius = 0.1f;
 
     SDL_Event event;
     bool done = false;
-    while (!done) {
+	while (!done) {
 		while (SDL_PollEvent(&event)) {
-            if (event.type == SDL_QUIT || event.type == SDL_WINDOWEVENT_CLOSE) {
-                done = true;
-            }
+			if (event.type == SDL_QUIT || event.type == SDL_WINDOWEVENT_CLOSE) {
+				done = true;
+			}
 		}
 
-		// Handle time elapsed
+		// Calculate elapsed time
 		float ticks = (float)SDL_GetTicks() / 1000.0f;
 		float elapsed = ticks - lastFrameTicks;
 		lastFrameTicks = ticks; // Reset
 
-		// Handle user's paddle movement
+		// Allow user to move the paddle up and down
 		const Uint8 *keys = SDL_GetKeyboardState(NULL);
-		if (keys[SDL_SCANCODE_UP] && (userPaddleY + 0.25 < 1.0)) {
-			userPaddleY += elapsed * 0.5f;
+		if (keys[SDL_SCANCODE_UP] && (userPaddleY + (paddleHeight / 2) < 1.0f)) {
+			userPaddleY += elapsed * distancePerSecond;
 		}
-		else if (keys[SDL_SCANCODE_DOWN] && (userPaddleY - 0.25 > -1.0)) {
-			userPaddleY -= elapsed * 0.5f;
+		else if (keys[SDL_SCANCODE_DOWN] && (userPaddleY - (paddleHeight / 2) > -1.0f)) {
+			userPaddleY -= elapsed * distancePerSecond;
+		}
+
+		if (isGameOver) {
+			ballX = 0.0f;
+			ballY = 0.0f;
+			isGameOver = false;
+			if (playerWon) {
+				isBallGoingRight = true;
+				glClearColor(0.5f, 1.0f, 0.83f, 1.0f); // Set background color to light green since player won
+			}
+			else {
+				isBallGoingRight = false;
+				glClearColor(1.0f, 0.71f, 0.88f, 0.76f); // Set background color to light red since AI won
+			}
 		}
 
 		// Handle AI's paddle movement (goes up and down repeatedly)
 		if (aiPaddleGoingUp) {
-			if (aiPaddleY + 0.25 < 1.0) {
-				aiPaddleY += elapsed * 0.5f;
-			} 
+			if (aiPaddleY + (paddleHeight / 2) < 1.0f) {
+				aiPaddleY += elapsed * distancePerSecond;
+			}
 			else {
 				aiPaddleGoingUp = false;
 			}
-		} 
+		}
 		else {
-			if (aiPaddleY - 0.25 > -1.0) {
-				aiPaddleY -= elapsed * 0.5f;
-			} 
+			if (aiPaddleY - (paddleHeight / 2) > -1.0f) {
+				aiPaddleY -= elapsed * distancePerSecond;
+			}
 			else {
 				aiPaddleGoingUp = true;
 			}
 		}
 
+		// Handle ball movement along the y-axis
+		if (isBallGoingUp) {
+			if (ballY + 0.05 < 1.0f) {
+				ballY += elapsed * distancePerSecond;
+			}
+			else {
+				isBallGoingUp = false;
+			}
+		}
+		else {
+			if (ballY - 0.05 > -1.0f) {
+				ballY -= elapsed * distancePerSecond;
+			}
+			else {
+				isBallGoingUp = true;
+			}
+		}
+
+		// Handle ball movement along the x-axis
+		if (isBallGoingRight) {
+			ballX += elapsed * distancePerSecond;
+			if (ballX - (ballRadius / 2) > 1.777f) {
+				isGameOver = true;
+				playerWon = false;
+			}
+			else {
+				// Check for paddle collision
+				if (ballY < userPaddleY + (paddleHeight / 2) && 
+					ballY > userPaddleY - (paddleHeight / 2) && 
+					ballX + (ballRadius / 2) > paddleOffsetX - paddleWidth && 
+					ballX + (ballRadius / 2) < paddleOffsetX - paddleWidth + 0.01f) {	// The 0.01f is necessary to make sure the 
+					isBallGoingRight = false;											// ball only rebounds if it hits the paddle.
+				}
+			}
+		}
+		else {
+			if (ballX - (ballRadius / 2) > -1.777f) {
+				ballX -= elapsed * distancePerSecond;
+
+				// Check for paddle collision
+				if (ballY < aiPaddleY + (paddleHeight / 2) && 
+					ballY > aiPaddleY - (paddleHeight / 2) && 
+					ballX - (ballRadius / 2) < paddleWidth - paddleOffsetX &&
+					ballX - (ballRadius / 2) > paddleWidth - paddleOffsetX - 0.01f) {	// The 0.01f is necessary to make sure the 
+					isBallGoingRight = true;											// ball only rebounds if it hits the paddle
+				}
+			}
+			else {
+				isGameOver = true;
+				playerWon = true;
+			}
+		}
+
 		glClear(GL_COLOR_BUFFER_BIT);
 
-		// Untextured polygons
-		glUseProgram(program.programID); // Use the shader program for untextured polygons
+		// Use the shader program for untextured polygons
+		glUseProgram(program.programID);
 
 		// Create a paddle by combining 2 triangles together. Height = 0.5f. Width = 0.1f.
 		float paddleVertices[] = { -0.05f, 0.25f, -0.05f, -0.25f, 0.05f, -0.25f, 0.05f, -0.25f, 0.05f, 0.25f, -0.05f, 0.25f };
@@ -133,18 +214,32 @@ int main(int argc, char *argv[])
 
 		// Offset user paddle to the right side
 		modelMatrix = glm::mat4(1.0f);
-		modelMatrix = glm::translate(modelMatrix, glm::vec3(1.5f, userPaddleY, 0.0f));
+		modelMatrix = glm::translate(modelMatrix, glm::vec3(paddleOffsetX, userPaddleY, 0.0f));
 		program.SetModelMatrix(modelMatrix);
 		program.SetColor(0.2f, 0.8f, 0.4f, 1.0f); // Green
-		glDrawArrays(GL_TRIANGLES, 0, 6); // Read in 6 pairs of vertices at a time since we combined the 2 triangles into 1 object
+		glDrawArrays(GL_TRIANGLES, 0, 6); // Read in 6 pairs of vertices at a time (rather than 3) since we combined the 2 triangles into 1 object
 
 		// Offset AI paddle to the left side
 		modelMatrix = glm::mat4(1.0f);
-		modelMatrix = glm::translate(modelMatrix, glm::vec3(-1.5f, aiPaddleY, 0.0f));
+		modelMatrix = glm::translate(modelMatrix, glm::vec3(-paddleOffsetX, aiPaddleY, 0.0f));
 		program.SetModelMatrix(modelMatrix);
 		program.SetColor(1.0f, 0.0f, 0.0f, 1.0f); // Red
 		glDrawArrays(GL_TRIANGLES, 0, 6);
-		
+
+		glDisableVertexAttribArray(program.positionAttribute);
+
+		// Create the ball
+		float ballVertices[] = { -0.05f, 0.05f, -0.05f, -0.05f, 0.05f, -0.05f, 0.05f, -0.05f, 0.05f, 0.05f, -0.05f, 0.05f };
+		glVertexAttribPointer(program.positionAttribute, 2, GL_FLOAT, false, 0, ballVertices);
+		glEnableVertexAttribArray(program.positionAttribute);
+
+		// Draw the ball
+		modelMatrix = glm::mat4(1.0f);
+		modelMatrix = glm::translate(modelMatrix, glm::vec3(ballX, ballY, 0.0f));
+		program.SetModelMatrix(modelMatrix);
+		program.SetColor(0.0f, 0.0f, 0.0f, 1.0f); // Black
+		glDrawArrays(GL_TRIANGLES, 0, 6);
+
 		glDisableVertexAttribArray(program.positionAttribute);
 
 		SDL_GL_SwapWindow(displayWindow);
