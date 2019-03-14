@@ -42,7 +42,7 @@ GLuint LoadTexture(const char *filePath) {
 int main(int argc, char *argv[])
 {
     SDL_Init(SDL_INIT_VIDEO);
-    displayWindow = SDL_CreateWindow("My Game", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 640, 360, SDL_WINDOW_OPENGL);
+    displayWindow = SDL_CreateWindow("Pong by Richard Shu", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 640, 360, SDL_WINDOW_OPENGL);
     SDL_GLContext context = SDL_GL_CreateContext(displayWindow);
     SDL_GL_MakeCurrent(displayWindow, context);
 
@@ -71,11 +71,14 @@ int main(int argc, char *argv[])
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-	// Time
-	float lastFrameTicks = 0.0f; // Initial value is 0
+	// Set time to an initial value of 0
+	float lastFrameTicks = 0.0f;
 
-	// User paddle y-coordinate
+	// Set y-coordinates of user and AI paddles
 	float userPaddleY = 0.0f;
+	float aiPaddleY = 0.0f;
+
+	bool aiPaddleGoingUp = true; // Go up by default
 
     SDL_Event event;
     bool done = false;
@@ -100,6 +103,24 @@ int main(int argc, char *argv[])
 			userPaddleY -= elapsed * 0.5f;
 		}
 
+		// Handle AI's paddle movement (goes up and down repeatedly)
+		if (aiPaddleGoingUp) {
+			if (aiPaddleY + 0.25 < 1.0) {
+				aiPaddleY += elapsed * 0.5f;
+			} 
+			else {
+				aiPaddleGoingUp = false;
+			}
+		} 
+		else {
+			if (aiPaddleY - 0.25 > -1.0) {
+				aiPaddleY -= elapsed * 0.5f;
+			} 
+			else {
+				aiPaddleGoingUp = true;
+			}
+		}
+
 		glClear(GL_COLOR_BUFFER_BIT);
 
 		// Untextured polygons
@@ -110,14 +131,19 @@ int main(int argc, char *argv[])
 		glVertexAttribPointer(program.positionAttribute, 2, GL_FLOAT, false, 0, paddleVertices);
 		glEnableVertexAttribArray(program.positionAttribute);
 
-		// Paddle color
-		program.SetColor(0.2f, 0.8f, 0.4f, 1.0f); // Green
-
 		// Offset user paddle to the right side
 		modelMatrix = glm::mat4(1.0f);
 		modelMatrix = glm::translate(modelMatrix, glm::vec3(1.5f, userPaddleY, 0.0f));
 		program.SetModelMatrix(modelMatrix);
+		program.SetColor(0.2f, 0.8f, 0.4f, 1.0f); // Green
 		glDrawArrays(GL_TRIANGLES, 0, 6); // Read in 6 pairs of vertices at a time since we combined the 2 triangles into 1 object
+
+		// Offset AI paddle to the left side
+		modelMatrix = glm::mat4(1.0f);
+		modelMatrix = glm::translate(modelMatrix, glm::vec3(-1.5f, aiPaddleY, 0.0f));
+		program.SetModelMatrix(modelMatrix);
+		program.SetColor(1.0f, 0.0f, 0.0f, 1.0f); // Red
+		glDrawArrays(GL_TRIANGLES, 0, 6);
 		
 		glDisableVertexAttribArray(program.positionAttribute);
 
