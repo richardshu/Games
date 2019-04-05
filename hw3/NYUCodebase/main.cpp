@@ -92,8 +92,6 @@ void SheetSprite::Draw(ShaderProgram &program) {
 	glDrawArrays(GL_TRIANGLES, 0, 6);
 	glDisableVertexAttribArray(program.positionAttribute);
 	glDisableVertexAttribArray(program.texCoordAttribute);
-
-	//glUseProgram(program.programID);
 }
 
 class Entity {
@@ -134,11 +132,11 @@ void DrawText(ShaderProgram &program, int fontTexture, std::string text, float s
 		float texture_x = (float)(spriteIndex % 16) / 16.0f;
 		float texture_y = (float)(spriteIndex / 16) / 16.0f;
 		vertexData.insert(vertexData.end(), {
-			((size + spacing) * i) + (-0.5f * size), 0.5f * size,
+			((size + spacing) * i) + (-0.5f * size),  0.5f * size,
 			((size + spacing) * i) + (-0.5f * size), -0.5f * size,
-			((size + spacing) * i) + (0.5f * size), 0.5f * size,
-			((size + spacing) * i) + (0.5f * size), -0.5f * size,
-			((size + spacing) * i) + (0.5f * size), 0.5f * size,
+			((size + spacing) * i) +  (0.5f * size),  0.5f * size,
+			((size + spacing) * i) +  (0.5f * size), -0.5f * size,
+			((size + spacing) * i) +  (0.5f * size),  0.5f * size,
 			((size + spacing) * i) + (-0.5f * size), -0.5f * size,
 		});
 		texCoordData.insert(texCoordData.end(), {
@@ -151,9 +149,19 @@ void DrawText(ShaderProgram &program, int fontTexture, std::string text, float s
 		});
 	}
 	glBindTexture(GL_TEXTURE_2D, fontTexture);
+
 	// draw this data (use the .data() method of std::vector to get pointer to data)
+	glVertexAttribPointer(program.positionAttribute, 2, GL_FLOAT, false, 0, vertexData.data());
+	glEnableVertexAttribArray(program.positionAttribute);
+
+	glVertexAttribPointer(program.texCoordAttribute, 2, GL_FLOAT, false, 0, texCoordData.data());
+	glEnableVertexAttribArray(program.texCoordAttribute);
+
 	// draw this yourself, use text.size() * 6 or vertexData.size()/2 to get number of vertices
-}
+	glDrawArrays(GL_TRIANGLES, 0, 6 * (int)text.size());
+	glDisableVertexAttribArray(program.positionAttribute);
+	glDisableVertexAttribArray(program.texCoordAttribute);
+;}
 
 GLuint LoadTexture(const char *filePath) {
 	int w, h, comp;
@@ -183,10 +191,7 @@ struct GameState {
 GameState state;
 GameMode mode;
 
-void SetupMainMenu() {
-	DrawText(texturedProgram, asciiSpriteSheetTexture, "Space Invaders", 1.0f, 0.0f);
-	DrawText(texturedProgram, asciiSpriteSheetTexture, "Play", 1.0f, 0.0f);
-}
+void SetupMainMenu() {}
 
 void SetupGameLevel() {
 
@@ -196,17 +201,17 @@ void SetupGameLevel() {
 	state.player.size = glm::vec3(1.0f, 1.0f, 1.0f);
 	state.player.sprite = SheetSprite(spaceSpriteSheetTexture, 112.0f / 1024.0f, 866.0f / 1024.0f, 112.0f / 1024.0f, 75.0f / 1024.0f, 0.2f);
 	
+	// Initialize meteors
+	for (int i = 0; i < MAX_NUM_METEORS; i++) {
+		Entity meteor;
+		meteor.sprite = SheetSprite(spaceSpriteSheetTexture, 327.0f / 1024.0f, 452.0f / 1024.0f, 98.0f / 1024.0f, 96.0f / 1024.0f, 0.25f);
+	}
+
 	// Initialize lasers
 	for (int i = 0; i < MAX_NUM_LASERS; i++) {
 		Entity laser;
 		laser.sprite = SheetSprite(spaceSpriteSheetTexture, 845.0f / 1024.0f, 0.0f / 13.0f, 13.0f / 1024.0f, 57.0f / 1024.0f, 0.2f);
 		state.lasers.push_back(laser);
-	}
-
-	// Initialize meteors
-	for (int i = 0; i < MAX_NUM_METEORS; i++) {
-		Entity meteor;
-		meteor.sprite = SheetSprite(spaceSpriteSheetTexture, 327.0f / 1024.0f, 452.0f / 1024.0f, 98.0f / 1024.0f, 96.0f / 1024.0f, 0.25f);
 	}
 }
 
@@ -249,9 +254,9 @@ void Setup() {
 
 	glUseProgram(texturedProgram.programID);
 
-	mode = GAME_LEVEL; // Render the menu when the user opens the game
-	//SetupMainMenu();
-	SetupGameLevel();
+	mode = MAIN_MENU; // Render the menu when the user opens the game
+	SetupMainMenu();
+	//SetupGameLevel();
 }
 
 void ProcessEvents() {
@@ -288,12 +293,12 @@ void Update() {
 
 	state.player.Update(elapsed);
 
-	for (size_t i = 0; i < state.lasers.size(); i++) {
-		state.lasers[i].Update(elapsed);
-	}
-
 	for (size_t i = 0; i < state.meteors.size(); i++) {
 		state.meteors[i].Update(elapsed);
+	}
+
+	for (size_t i = 0; i < state.lasers.size(); i++) {
+		state.lasers[i].Update(elapsed);
 	}
 	
 	// Check for collisions
@@ -301,18 +306,26 @@ void Update() {
 }
 
 void RenderMainMenu() {
-	
+	glm::mat4 modelMatrix = glm::mat4(1.0f);
+	modelMatrix = glm::translate(modelMatrix, glm::vec3(-0.8f, 0.25f, 0.0f));
+	texturedProgram.SetModelMatrix(modelMatrix);
+	DrawText(texturedProgram, asciiSpriteSheetTexture, "Space Invaders", 0.3f, -0.175f);
+
+	modelMatrix = glm::mat4(1.0f);
+	modelMatrix = glm::translate(modelMatrix, glm::vec3(-0.1f, -0.1f, 0.0f));
+	texturedProgram.SetModelMatrix(modelMatrix);
+	DrawText(texturedProgram, asciiSpriteSheetTexture, "Play", 0.125f, -0.075f);
 }
 
 void RenderGameLevel() {
 	state.player.Draw(texturedProgram);
 	
 	// Loop through entities and call their draw methods
-	for (size_t i = 0; i < state.lasers.size(); i++) {
-		state.lasers[i].Draw(texturedProgram);
-	}
 	for (size_t i = 0; i < state.meteors.size(); i++) {
 		state.meteors[i].Draw(texturedProgram);
+	}
+	for (size_t i = 0; i < state.lasers.size(); i++) {
+		state.lasers[i].Draw(texturedProgram);
 	}
 }
 
