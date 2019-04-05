@@ -74,13 +74,15 @@ void SheetSprite::Draw(ShaderProgram &program) {
 	glVertexAttribPointer(program.positionAttribute, 2, GL_FLOAT, false, 0, vertices);
 	glEnableVertexAttribArray(program.positionAttribute);
 
+	// UV coords are upside down relative to vertices
+	// (everything is rotated 180 degrees around the origin)
 	float texCoords[] = {
-		u, v,
-		u, v + height,
-		u + width, v,
+		u + width, v + height,
 		u + width, v,
 		u, v + height,
-		u + width, v + height
+		u, v + height,
+		u + width, v,
+		u, v
 	};
 	glVertexAttribPointer(program.texCoordAttribute, 2, GL_FLOAT, false, 0, texCoords);
 	glEnableVertexAttribArray(program.texCoordAttribute);
@@ -91,7 +93,7 @@ void SheetSprite::Draw(ShaderProgram &program) {
 	glDisableVertexAttribArray(program.positionAttribute);
 	glDisableVertexAttribArray(program.texCoordAttribute);
 
-	glUseProgram(program.programID);
+	//glUseProgram(program.programID);
 }
 
 class Entity {
@@ -192,20 +194,19 @@ void SetupGameLevel() {
 	state.player.position = glm::vec3(0.0f, -0.75f, 0.0f);
 	state.player.velocity = glm::vec3(0.0f, 0.0f, 0.0f);
 	state.player.size = glm::vec3(1.0f, 1.0f, 1.0f);
-	state.player.sprite = SheetSprite(spaceSpriteSheetTexture, 237.0f / 1024.0f, 377.0f / 1024.0f, 99.0f / 1024.0f, 75.0f / 1024.0f, 0.2f);
-
+	state.player.sprite = SheetSprite(spaceSpriteSheetTexture, 112.0f / 1024.0f, 866.0f / 1024.0f, 112.0f / 1024.0f, 75.0f / 1024.0f, 0.2f);
+	
 	// Initialize lasers
 	for (int i = 0; i < MAX_NUM_LASERS; i++) {
 		Entity laser;
-		laser.sprite = SheetSprite(spaceSpriteSheetTexture, 740.0f / 1024.0f, 686.0f / 1024.0f, 37.0f / 1024.0f, 38.0f / 1024.0f, 0.2f);
+		laser.sprite = SheetSprite(spaceSpriteSheetTexture, 845.0f / 1024.0f, 0.0f / 13.0f, 13.0f / 1024.0f, 57.0f / 1024.0f, 0.2f);
 		state.lasers.push_back(laser);
 	}
 
 	// Initialize meteors
 	for (int i = 0; i < MAX_NUM_METEORS; i++) {
 		Entity meteor;
-		meteor.sprite = SheetSprite(spaceSpriteSheetTexture, 224.0f / 1024.0f, 664.0f / 1024.0f, 101.0f / 1024.0f, 84.0f / 1024.0f, 0.2f);
-		state.meteors.push_back(meteor);
+		meteor.sprite = SheetSprite(spaceSpriteSheetTexture, 327.0f / 1024.0f, 452.0f / 1024.0f, 98.0f / 1024.0f, 96.0f / 1024.0f, 0.25f);
 	}
 }
 
