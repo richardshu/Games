@@ -23,14 +23,17 @@
 #include <vector>
 
 SDL_Window* displayWindow;
-
-//ShaderProgram program;		// For untextured polygons
+ShaderProgram program;			// For untextured polygons
 ShaderProgram texturedProgram;  // For textured polygons
 
-float lastFrameTicks = 0.0f;	// Set time to an initial value of 0
 bool done = false;				// Game loop
+float lastFrameTicks = 0.0f;	// Set time to an initial value of 0
 
-glm::mat4 modelMatrix = glm::mat4(1.0f);
+int MAX_NUM_LASERS  = 30;
+int MAX_NUM_METEORS = 30;
+
+GLuint asciiSpriteSheetTexture;
+GLuint spaceSpriteSheetTexture;
 
 class SheetSprite {
 public:
@@ -38,17 +41,18 @@ public:
 	SheetSprite(unsigned int textureID, float u, float v, float width, float height, float size);
 	void Draw(ShaderProgram &program);
 
-	unsigned int textureID;
 	float u;
 	float v;
 	float width;
 	float height;
 	float size;
+	unsigned int textureID;
 };
 
 SheetSprite::SheetSprite() {}
 
 SheetSprite::SheetSprite(unsigned int textureID, float u, float v, float width, float height, float size) {
+	this->textureID = textureID;
 	this->u = u;
 	this->v = v;
 	this->width = width;
@@ -57,59 +61,67 @@ SheetSprite::SheetSprite(unsigned int textureID, float u, float v, float width, 
 }
 
 void SheetSprite::Draw(ShaderProgram &program) {
+	program.SetColor(1.0f, 0.0f, 0.0f, 1.0f);
+	float aspectRatio = width / height;
+	float vertices[] = { 
+		-0.5f * size * aspectRatio, -0.5f * size,
+		-0.5f * size * aspectRatio,  0.5f * size, 
+		 0.5f * size * aspectRatio, -0.5f * size,
+		 0.5f * size * aspectRatio, -0.5f * size,
+		-0.5f * size * aspectRatio,  0.5f * size,
+		 0.5f * size * aspectRatio,  0.5f * size
+	};
+	glVertexAttribPointer(program.positionAttribute, 2, GL_FLOAT, false, 0, vertices);
+	glEnableVertexAttribArray(program.positionAttribute);
 
+	float texCoords[] = {
+		u, v,
+		u, v + height,
+		u + width, v,
+		u + width, v,
+		u, v + height,
+		u + width, v + height
+	};
+	glVertexAttribPointer(program.texCoordAttribute, 2, GL_FLOAT, false, 0, texCoords);
+	glEnableVertexAttribArray(program.texCoordAttribute);
+
+	glBindTexture(GL_TEXTURE_2D, textureID);
+
+	glDrawArrays(GL_TRIANGLES, 0, 6);
+	glDisableVertexAttribArray(program.positionAttribute);
+	glDisableVertexAttribArray(program.texCoordAttribute);
+
+	glUseProgram(program.programID);
 }
 
 class Entity {
 public:
-	// Methods
-	void Draw(ShaderProgram &program);
 	void Update(float elapsed);
-	void SetColor(float r, float g, float b, float a);
+	void Draw(ShaderProgram &program);
 
-	// Attributes
-	SheetSprite sprite;
-	int textureID;
-	float x;
-	float y;
-	float width;
-	float height;
+	glm::vec3 position;
+	glm::vec3 velocity;
+	glm::vec3 size;
+
 	float rotation;
-	float velocity;
-	float direction_x;
-	float direction_y;
-	float r, g, b, a;
+	SheetSprite sprite;
 };
 
-void Entity::Draw(ShaderProgram &program) {
-	float vertices[] = { -0.5f, 0.5f, -0.5f, -0.5f, 0.5f, -0.5f, 0.5f, -0.5f, 0.5f, 0.5f, -0.5f, 0.5f };
-	glVertexAttribPointer(program.positionAttribute, 2, GL_FLOAT, false, 0, vertices);
-	glEnableVertexAttribArray(program.positionAttribute);
-
-	glm::mat4 modelMatrix = glm::mat4(1.0f);
-	modelMatrix = glm::translate(modelMatrix, glm::vec3(x, y, 0.0f));
-	program.SetModelMatrix(modelMatrix);
-	program.SetColor(r, g, b, a);
-	
-	glDrawArrays(GL_TRIANGLES, 0, 6);
-	glDisableVertexAttribArray(program.positionAttribute);
-}
-
 void Entity::Update(float elapsed) {
-	this->x += elapsed * direction_x;
-	this->y += elapsed * direction_y;
+	position.x += elapsed * velocity.x;
+	position.y += elapsed * velocity.y;
 }
 
-void Entity::SetColor(float r, float g, float b, float a) {
-	this->r = r;
-	this->g = g;
-	this->b = b;
-	this->a = a;
+void Entity::Draw(ShaderProgram &program) {
+	glm::mat4 modelMatrix = glm::mat4(1.0f);
+	modelMatrix = glm::translate(modelMatrix, position);
+	modelMatrix = glm::scale(modelMatrix, size);
+	program.SetModelMatrix(modelMatrix);
+	
+	// Designate the creation of vertices and texture 
+	// coordinates to the sprite's Draw() method
+	sprite.Draw(program);
 }
-
-Entity playerSpaceship;
-std::vector<Entity> lasers;
-std::vector<Entity> meteors;
 
 void DrawText(ShaderProgram &program, int fontTexture, std::string text, float size, float spacing) {
 	float character_size = 1.0 / 16.0f;
@@ -158,6 +170,45 @@ GLuint LoadTexture(const char *filePath) {
 	return retTexture;
 }
 
+enum GameMode { MAIN_MENU, GAME_LEVEL };
+
+struct GameState {
+	Entity player;
+	std::vector<Entity> lasers;
+	std::vector<Entity> meteors;
+};
+
+GameState state;
+GameMode mode;
+
+void SetupMainMenu() {
+	DrawText(texturedProgram, asciiSpriteSheetTexture, "Space Invaders", 1.0f, 0.0f);
+	DrawText(texturedProgram, asciiSpriteSheetTexture, "Play", 1.0f, 0.0f);
+}
+
+void SetupGameLevel() {
+
+	// Initialize player spaceship
+	state.player.position = glm::vec3(0.0f, -0.75f, 0.0f);
+	state.player.velocity = glm::vec3(0.0f, 0.0f, 0.0f);
+	state.player.size = glm::vec3(1.0f, 1.0f, 1.0f);
+	state.player.sprite = SheetSprite(spaceSpriteSheetTexture, 237.0f / 1024.0f, 377.0f / 1024.0f, 99.0f / 1024.0f, 75.0f / 1024.0f, 0.2f);
+
+	// Initialize lasers
+	for (int i = 0; i < MAX_NUM_LASERS; i++) {
+		Entity laser;
+		laser.sprite = SheetSprite(spaceSpriteSheetTexture, 740.0f / 1024.0f, 686.0f / 1024.0f, 37.0f / 1024.0f, 38.0f / 1024.0f, 0.2f);
+		state.lasers.push_back(laser);
+	}
+
+	// Initialize meteors
+	for (int i = 0; i < MAX_NUM_METEORS; i++) {
+		Entity meteor;
+		meteor.sprite = SheetSprite(spaceSpriteSheetTexture, 224.0f / 1024.0f, 664.0f / 1024.0f, 101.0f / 1024.0f, 84.0f / 1024.0f, 0.2f);
+		state.meteors.push_back(meteor);
+	}
+}
+
 void Setup() {
 	SDL_Init(SDL_INIT_VIDEO);
 	displayWindow = SDL_CreateWindow("Space Invaders by Richard Shu", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 640, 360, SDL_WINDOW_OPENGL);
@@ -174,44 +225,32 @@ void Setup() {
 	//program.Load(RESOURCE_FOLDER"vertex.glsl", RESOURCE_FOLDER"fragment.glsl");
 	texturedProgram.Load(RESOURCE_FOLDER"vertex_textured.glsl", RESOURCE_FOLDER"fragment_textured.glsl");
 
-	glUseProgram(texturedProgram.programID);
+	// Load sprite sheets
+	asciiSpriteSheetTexture = LoadTexture(RESOURCE_FOLDER"ascii_spritesheet.png");
+	spaceSpriteSheetTexture = LoadTexture(RESOURCE_FOLDER"space_spritesheet.png");
 
 	// "Blend" textures so their background doesn't show
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-	// "Clamps" down on a texture so that the pixels on the edge repeat
+	// "Clamp" down on a texture so that the pixels on the edge repeat
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
 
 	glm::mat4 viewMatrix = glm::mat4(1.0f);
 	glm::mat4 projectionMatrix = glm::ortho(-1.777f, 1.777f, -1.0f, 1.0f, -1.0f, 1.0f);
 
-	texturedProgram.SetModelMatrix(modelMatrix);
+	program.SetViewMatrix(viewMatrix);
+	program.SetProjectionMatrix(projectionMatrix);
+
 	texturedProgram.SetViewMatrix(viewMatrix);
 	texturedProgram.SetProjectionMatrix(projectionMatrix);
 
-	glClearColor(1.0f, 1.0f, 0.88f, 1.0f); // Set background color to light yellow
+	glUseProgram(texturedProgram.programID);
 
-	GLuint asciiSpriteSheetTexture = LoadTexture("ascii_spritesheet.png"); // Load ASCII sprite sheet
-	GLuint spaceSpriteSheetTexture = LoadTexture("space_spritesheet.png"); // Load space sprite sheet
-
-	// Initialize player spaceship
-	playerSpaceship.sprite = SheetSprite(spaceSpriteSheetTexture, 237.0f / 1024.0f, 377.0f / 1024.0f, 99.0f, 75.0f, 0.2f);
-
-	// Initialize lasers
-	for (int i = 0; i < 30; i++) {
-		Entity laser;
-		laser.sprite = SheetSprite(spaceSpriteSheetTexture, 740.0f / 1024.0f, 686.0f / 1024.0f, 37.0f, 38.0f, 0.2f);
-		lasers.push_back(laser);
-	}
-	
-	// Initialize meteors
-	for (int i = 0; i < 30; i++) {
-		Entity meteor;
-		meteor.sprite = SheetSprite(spaceSpriteSheetTexture, 224.0f / 1024.0f, 664.0f / 1024.0f, 101.0f / 1024.0f, 84.0f / 1024.0f, 0.2f);
-		meteors.push_back(meteor);
-	}
+	mode = GAME_LEVEL; // Render the menu when the user opens the game
+	//SetupMainMenu();
+	SetupGameLevel();
 }
 
 void ProcessEvents() {
@@ -225,13 +264,13 @@ void ProcessEvents() {
 	// Allow the player to move the spaceship left and right
 	const Uint8 *keys = SDL_GetKeyboardState(NULL);
 	if (keys[SDL_SCANCODE_LEFT]) {
-		playerSpaceship.direction_x = -1.0f;
+		state.player.velocity.x = -1.0f;
 	}
 	else if (keys[SDL_SCANCODE_RIGHT]) {
-		playerSpaceship.direction_x = 1.0f;
+		state.player.velocity.x = 1.0f;
 	}
 	else {
-		playerSpaceship.direction_x = 0.0f;
+		state.player.velocity.x = 0.0f;
 	}
 
 	// Allow the player to shoot lasers
@@ -246,24 +285,45 @@ void Update() {
 	float elapsed = ticks - lastFrameTicks;
 	lastFrameTicks = ticks; // Reset
 
-	for (size_t i = 0; i < meteors.size(); i++) {
-		meteors[i].Update(elapsed);
+	state.player.Update(elapsed);
+
+	for (size_t i = 0; i < state.lasers.size(); i++) {
+		state.lasers[i].Update(elapsed);
 	}
 
+	for (size_t i = 0; i < state.meteors.size(); i++) {
+		state.meteors[i].Update(elapsed);
+	}
+	
 	// Check for collisions
 
 }
 
+void RenderMainMenu() {
+	
+}
+
+void RenderGameLevel() {
+	state.player.Draw(texturedProgram);
+	
+	// Loop through entities and call their draw methods
+	for (size_t i = 0; i < state.lasers.size(); i++) {
+		state.lasers[i].Draw(texturedProgram);
+	}
+	for (size_t i = 0; i < state.meteors.size(); i++) {
+		state.meteors[i].Draw(texturedProgram);
+	}
+}
+
 void Render() {
 	glClear(GL_COLOR_BUFFER_BIT);
-	playerSpaceship.Draw(texturedProgram);
-
-	// Loop through entities and call their draw methods
-	for (size_t i = 0; i < lasers.size(); i++) {
-		lasers[i].Draw(texturedProgram);
-	}
-	for (size_t i = 0; i < meteors.size(); i++) {
-		meteors[i].Draw(texturedProgram);
+	switch (mode) {
+	case MAIN_MENU:
+		RenderMainMenu();
+		break;
+	case GAME_LEVEL:
+		RenderGameLevel();
+		break;
 	}
 	SDL_GL_SwapWindow(displayWindow);
 }
