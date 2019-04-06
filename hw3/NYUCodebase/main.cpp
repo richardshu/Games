@@ -269,19 +269,27 @@ void ProcessEvents() {
 
 	// Allow the player to move the spaceship left and right
 	const Uint8 *keys = SDL_GetKeyboardState(NULL);
-	if (keys[SDL_SCANCODE_LEFT]) {
-		state.player.velocity.x = -1.0f;
+	if (mode == MAIN_MENU) {
+		if (event.type == SDL_MOUSEBUTTONDOWN) {
+			mode = GAME_LEVEL;
+			SetupGameLevel();
+		}
 	}
-	else if (keys[SDL_SCANCODE_RIGHT]) {
-		state.player.velocity.x = 1.0f;
-	}
-	else {
-		state.player.velocity.x = 0.0f;
-	}
+	else if (mode == GAME_LEVEL) {
+		if (keys[SDL_SCANCODE_LEFT]) {
+			state.player.velocity.x = -1.0f;
+		}
+		else if (keys[SDL_SCANCODE_RIGHT]) {
+			state.player.velocity.x = 1.0f;
+		}
+		else {
+			state.player.velocity.x = 0.0f;
+		}
 
-	// Allow the player to shoot lasers
-	if (keys[SDL_SCANCODE_SPACE]) {
-		
+		// Allow the player to shoot lasers
+		if (keys[SDL_SCANCODE_SPACE]) {
+
+		}
 	}
 }
 
