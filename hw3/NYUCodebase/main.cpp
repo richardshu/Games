@@ -26,9 +26,6 @@ SDL_Window* displayWindow;
 ShaderProgram program;			// For untextured polygons
 ShaderProgram texturedProgram;  // For textured polygons
 
-bool done = false;				// Game loop
-float lastFrameTicks = 0.0f;	// Set time to an initial value of 0
-
 // Constants
 size_t MAX_NUM_LASERS  = 15;
 size_t MAX_NUM_METEORS = 30;
@@ -36,6 +33,10 @@ size_t NUM_ROWS = 3;
 size_t NUM_METEORS_PER_ROW = MAX_NUM_METEORS / NUM_ROWS;
 float SPACE_BETWEEN_METEORS_X = 2 * 1.5f / NUM_METEORS_PER_ROW;
 float SPACE_BETWEEN_METEORS_Y = 0.3f;
+
+bool done = false;				// Game loop
+float lastFrameTicks = 0.0f;	// Set time to an initial value of 0
+int numMeteorsLeft = MAX_NUM_METEORS;
 
 GLuint asciiSpriteSheetTexture;
 GLuint spaceSpriteSheetTexture;
@@ -209,6 +210,16 @@ bool Collides(Entity &entity1, Entity &entity2) {
 	return distanceX < 0 && distanceY < 0;
 }
 
+bool meteorsCollideWithSide() {
+	for (size_t i = 0; i < state.meteors.size(); i++) {
+		Entity meteor = state.meteors[i];
+		if ((meteor.position.x + meteor.sprite.width > 1.777f && meteor.position.x + meteor.sprite.width < 100) || meteor.position.x - meteor.sprite.width < -1.777f) {
+			return true;
+		}
+	}
+	return false;
+}
+
 void SetupMainMenu() {}
 
 void SetupGameLevel() {
@@ -333,26 +344,33 @@ void Update() {
 	for (size_t i = 0; i < state.lasers.size(); i++) {
 		state.lasers[i].Update(elapsed);
 		
-		// Check for collisions with meteors
+		// Check for collisions between lasers and meteors
 		for (size_t j = 0; j < state.meteors.size(); j++) {
 			if (Collides(state.lasers[i], state.meteors[j])) {
 				state.lasers[i].position.x = 100.0f;
-				state.meteors[j].position.x = 100.0f;
+				state.meteors[j].position.x = 150.0f;
+				numMeteorsLeft--;
 			}
 		}
 	}
 
 	for (size_t i = 0; i < state.meteors.size(); i++) {
 		state.meteors[i].Update(elapsed);
+
+		// Check for collisions between meteors and player
+		if (Collides(state.meteors[i], state.player) || numMeteorsLeft == 0) {
+			mode = MAIN_MENU;
+			SetupMainMenu();
+		}
 	}
 
-	//if (true) {
-	//	for (size_t i = 0; i < state.meteors.size(); i++) {
-	//		//state.meteors[i].position.y -= SPACE_BETWEEN_METEORS_Y;
-	//		state.meteors[i].velocity.x = -state.meteors[i].velocity.x;
-	//		state.meteors[i].Update(elapsed);
-	//	}
-	//}
+	if (meteorsCollideWithSide()) {
+		for (size_t i = 0; i < state.meteors.size(); i++) {
+			state.meteors[i].position.y -= SPACE_BETWEEN_METEORS_Y / 3;
+			state.meteors[i].velocity.x = -state.meteors[i].velocity.x;
+			state.meteors[i].Update(elapsed);
+		}
+	}
 }
 
 void RenderMainMenu() {
