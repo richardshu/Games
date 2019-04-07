@@ -316,10 +316,10 @@ void ProcessEvents() {
 		}
 	}
 	else if (mode == GAME_LEVEL) {
-		if (keys[SDL_SCANCODE_LEFT]) {
+		if (keys[SDL_SCANCODE_LEFT] && state.player.position.x - state.player.sprite.width > -1.777f) {
 			state.player.velocity.x = -1.0f;
 		}
-		else if (keys[SDL_SCANCODE_RIGHT]) {
+		else if (keys[SDL_SCANCODE_RIGHT] && state.player.position.x + state.player.sprite.width < 1.777f) {
 			state.player.velocity.x = 1.0f;
 		}
 		else {
