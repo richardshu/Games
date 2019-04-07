@@ -29,8 +29,8 @@ ShaderProgram texturedProgram;  // For textured polygons
 bool done = false;				// Game loop
 float lastFrameTicks = 0.0f;	// Set time to an initial value of 0
 
-int MAX_NUM_LASERS  = 30;
-int MAX_NUM_METEORS = 30;
+size_t MAX_NUM_LASERS  = 15;
+size_t MAX_NUM_METEORS = 30;
 
 GLuint asciiSpriteSheetTexture;
 GLuint spaceSpriteSheetTexture;
@@ -118,7 +118,7 @@ void Entity::Draw(ShaderProgram &program) {
 	modelMatrix = glm::scale(modelMatrix, size);
 	program.SetModelMatrix(modelMatrix);
 	
-	// Designate the creation of vertices and texture 
+	// Designate the creation of vertex and texture 
 	// coordinates to the sprite's Draw() method
 	sprite.Draw(program);
 }
@@ -186,31 +186,54 @@ struct GameState {
 	Entity player;
 	std::vector<Entity> lasers;
 	std::vector<Entity> meteors;
+	size_t currentLaserIndex = 0;
 };
 
 GameState state;
 GameMode mode;
 
+void shootLaser() {
+	state.lasers[state.currentLaserIndex].position = glm::vec3(state.player.position.x, state.player.position.y + 2 * state.player.sprite.height, 0.0f);
+	state.currentLaserIndex++;
+	state.currentLaserIndex = state.currentLaserIndex % MAX_NUM_LASERS;
+}
+
 void SetupMainMenu() {}
 
 void SetupGameLevel() {
+	// Load sprites from sprite sheets
+	SheetSprite playerSprite = SheetSprite(spaceSpriteSheetTexture, 112.0f / 1024.0f, 866.0f / 1024.0f, 112.0f / 1024.0f, 75.0f / 1024.0f, 0.2f);
+	SheetSprite meteorSprite = SheetSprite(spaceSpriteSheetTexture, 327.0f / 1024.0f, 452.0f / 1024.0f, 98.0f / 1024.0f, 96.0f / 1024.0f, 0.25f);
+	SheetSprite laserSprite = SheetSprite(spaceSpriteSheetTexture, 845.0f / 1024.0f, 0.0f / 13.0f, 13.0f / 1024.0f, 57.0f / 1024.0f, 0.2f);
 
 	// Initialize player spaceship
+	state.player.sprite = playerSprite;
 	state.player.position = glm::vec3(0.0f, -0.75f, 0.0f);
 	state.player.velocity = glm::vec3(0.0f, 0.0f, 0.0f);
 	state.player.size = glm::vec3(1.0f, 1.0f, 1.0f);
-	state.player.sprite = SheetSprite(spaceSpriteSheetTexture, 112.0f / 1024.0f, 866.0f / 1024.0f, 112.0f / 1024.0f, 75.0f / 1024.0f, 0.2f);
 	
 	// Initialize meteors
-	for (int i = 0; i < MAX_NUM_METEORS; i++) {
-		Entity meteor;
-		meteor.sprite = SheetSprite(spaceSpriteSheetTexture, 327.0f / 1024.0f, 452.0f / 1024.0f, 98.0f / 1024.0f, 96.0f / 1024.0f, 0.25f);
+	int numRows = 3;
+	int numMeteorsPerRow = MAX_NUM_METEORS / numRows;
+	float spaceBetweenMeteorsX = 2 * 1.5f / numMeteorsPerRow;
+	float spaceBetweenMeteorsY = 0.3f;
+	for (int row = 0; row < numRows; row++) {
+		for (int col = 0; col < numMeteorsPerRow; col++) {
+			Entity meteor;
+			meteor.sprite = meteorSprite;
+			meteor.velocity = glm::vec3(0.25f, 0.0f, 0.0f);
+			meteor.size = glm::vec3(1.0f, 1.0f, 1.0f);
+			meteor.position = glm::vec3((col + 1) * spaceBetweenMeteorsX - 1.777f, row * spaceBetweenMeteorsY + 0.2f, 0.0f);
+			state.meteors.push_back(meteor);
+		}
 	}
 
 	// Initialize lasers
 	for (int i = 0; i < MAX_NUM_LASERS; i++) {
 		Entity laser;
-		laser.sprite = SheetSprite(spaceSpriteSheetTexture, 845.0f / 1024.0f, 0.0f / 13.0f, 13.0f / 1024.0f, 57.0f / 1024.0f, 0.2f);
+		laser.sprite = laserSprite;
+		laser.velocity = glm::vec3(0.0f, 1.0f, 0.0f);
+		laser.size = glm::vec3(1.0f, 1.0f, 1.0f);
 		state.lasers.push_back(laser);
 	}
 }
@@ -256,7 +279,6 @@ void Setup() {
 
 	mode = MAIN_MENU; // Render the menu when the user opens the game
 	SetupMainMenu();
-	//SetupGameLevel();
 }
 
 void ProcessEvents() {
@@ -286,9 +308,9 @@ void ProcessEvents() {
 			state.player.velocity.x = 0.0f;
 		}
 
-		// Allow the player to shoot lasers
-		if (keys[SDL_SCANCODE_SPACE]) {
-
+		// Make shooting lasers an input event (rather than a polling event) since it doesn't require continuous checking
+		if (event.key.keysym.scancode == SDL_SCANCODE_SPACE) {
+			shootLaser();
 		}
 	}
 }
@@ -301,12 +323,12 @@ void Update() {
 
 	state.player.Update(elapsed);
 
-	for (size_t i = 0; i < state.meteors.size(); i++) {
-		state.meteors[i].Update(elapsed);
-	}
-
 	for (size_t i = 0; i < state.lasers.size(); i++) {
 		state.lasers[i].Update(elapsed);
+	}
+
+	for (size_t i = 0; i < state.meteors.size(); i++) {
+		state.meteors[i].Update(elapsed);
 	}
 	
 	// Check for collisions
