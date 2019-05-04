@@ -410,7 +410,14 @@ void Render() {
 	SDL_GL_SwapWindow(displayWindow);
 }
 
-void Cleanup() {}
+void Cleanup() {
+	for (size_t i = 0; i < state.meteors.size(); i++) {
+		state.meteors.pop_back();
+	}
+	for (size_t i = 0; i < state.lasers.size(); i++) {
+		state.lasers.pop_back();
+	}
+}
 
 int main(int argc, char *argv[])
 {
