@@ -27,8 +27,7 @@
 #include <sstream>
 using namespace std;
 
-// 60 FPS (1.0f/60.0f) (update sixty times a second)
-#define FIXED_TIMESTEP 0.0166666f
+#define FIXED_TIMESTEP 0.0166666f	// 60 FPS (1.0f/60.0f) (update sixty times a second)
 #define MAX_TIMESTEPS 6
 #define TILE_SIZE 0.07f
 #define SPRITE_COUNT_X 16
@@ -112,7 +111,7 @@ class Entity {
 public:
 	void Update(float elapsed);
 	void Draw(ShaderProgram &program);
-	bool CollidesWith(Entity &entity);
+	bool CollidesWith(Entity &otherEntity);
 
 	SheetSprite sprite;
 
@@ -128,6 +127,10 @@ public:
 	bool collidedBottom;
 	bool collidedLeft;
 	bool collidedRight;
+
+private:
+	void ResolveCollisionX(Entity &otherEntity);
+	void ResolveCollisionY(Entity &otherEntity);
 };
 
 float lerp(float v0, float v1, float t) {
@@ -156,9 +159,56 @@ void Entity::Draw(ShaderProgram &program) {
 }
 
 bool Entity::CollidesWith(Entity &otherEntity) {
-	float distanceX = abs(position.x - otherEntity.position.x) - (sprite.width + otherEntity.sprite.width);
-	float distanceY = abs(position.y - otherEntity.position.y) - (sprite.height + otherEntity.sprite.height);
-	return distanceX < 0 && distanceY < 0;
+	// There is no collision
+	if (position.x + sprite.width / 2 < otherEntity.position.x - otherEntity.sprite.width / 2 || 
+		position.x - sprite.width / 2 > otherEntity.position.x + otherEntity.sprite.width / 2 || 
+		position.y + sprite.width / 2 < otherEntity.position.y - otherEntity.sprite.width / 2 || 
+		position.y - sprite.width / 2 > otherEntity.position.y + otherEntity.sprite.width / 2) {
+		return false;
+	}
+	// Remove coins when player collides with them
+	if (otherEntity.entityType == ENTITY_COIN) {
+		otherEntity.position = glm::vec3(100.0f, 100.0f, 0.0f);
+	}
+	else {
+		ResolveCollisionX(otherEntity);
+		ResolveCollisionY(otherEntity);
+	}
+	return true;
+}
+
+void Entity::ResolveCollisionX(Entity& otherEntity) {
+	float penetration = fabs(fabs(position.x - otherEntity.position.x) - sprite.width/2 - otherEntity.sprite.width/2);
+
+	// A right collision occurred
+	if (position.x < otherEntity.position.x) {
+		position.x -= penetration - 0.00001f;
+		collidedRight = true;
+	}
+
+	// A left collision occurred
+	else {
+		position.x += penetration + 0.00001f;
+		collidedLeft = true;
+	}
+	velocity.x = 0.0f; // Reset
+}
+
+void Entity::ResolveCollisionY(Entity& otherEntity) {
+	float penetration = fabs(fabs(position.y - otherEntity.position.y) - sprite.height / 2 - otherEntity.sprite.height / 2);
+
+	// A top collision occurred
+	if (position.y < otherEntity.position.y) {
+		position.y -= penetration - 0.00001f;
+		collidedBottom = true;
+	}
+
+	// A bottom collision occurred
+	else {
+		position.y += penetration + 0.00001f;
+		collidedTop = true;
+	}
+	velocity.y = 0.0f; // Reset
 }
 
 GLuint LoadTexture(const char *filePath) {
@@ -403,6 +453,7 @@ void SetupGameLevel() {
 	state.player.velocity = glm::vec3(0.0f, 0.0f, 0.0f);
 	state.player.acceleration = glm::vec3(0.0f, GRAVITY, 0.0f);
 	state.player.isStatic = false;
+	state.player.entityType = ENTITY_PLAYER;
 	state.player.collidedTop = false;
 	state.player.collidedBottom = false;
 	state.player.collidedLeft = false;
@@ -513,31 +564,33 @@ void ProcessEvents() {
 		}
 	}
 	else if (mode == GAME_LEVEL) {
-		if (keys[SDL_SCANCODE_LEFT] && state.player.position.x - state.player.sprite.width > -1.777f) {
+		// Move left
+		if (keys[SDL_SCANCODE_LEFT]) {
 			state.player.acceleration.x = -1.0f;
 		}
-		else if (keys[SDL_SCANCODE_RIGHT] && state.player.position.x + state.player.sprite.width < 1.777f) {
+		// Move right
+		else if (keys[SDL_SCANCODE_RIGHT]) {
 			state.player.acceleration.x = 1.0f;
 		}
 		else {
 			state.player.acceleration.x = 0.0f;
 		}
 
-		
-		if (event.key.keysym.scancode == SDL_SCANCODE_SPACE) {
-			
+		// Jump
+		if (event.key.keysym.scancode == SDL_SCANCODE_UP) {
+			state.player.velocity.y = 1.0f;
 		}
 	}
 }
 
 void Update(float elapsed) {
-	// Call each entities' Update() method
+	// Call each NONSTATIC entities' Update() method
 	state.player.Update(elapsed);
 	for (size_t i = 0; i < state.tiles.size(); i++) {
-		state.tiles[i].Update(elapsed);
+		state.player.CollidesWith(state.tiles[i]);
 	}
 	for (size_t i = 0; i < state.coins.size(); i++) {
-		state.coins[i].Update(elapsed);
+		state.player.CollidesWith(state.coins[i]);
 	}
 }
 
