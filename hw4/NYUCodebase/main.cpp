@@ -27,18 +27,24 @@
 #include <sstream>
 using namespace std;
 
+// 60 FPS (1.0f/60.0f) (update sixty times a second)
+#define FIXED_TIMESTEP 0.0166666f
+#define MAX_TIMESTEPS 6
+#define TILE_SIZE 0.07f
+#define SPRITE_COUNT_X 16
+#define SPRITE_COUNT_Y 8
+
 SDL_Window* displayWindow;
 ShaderProgram texturedProgram;  // For textured polygons
 
 bool done = false;				// Game loop
 float lastFrameTicks = 0.0f;	// Set time to an initial value of 0
+float accumulator = 0.0f;
 
-#define TILE_SIZE 0.07f
-#define SPRITE_COUNT_X 16
-#define SPRITE_COUNT_Y 8
 int mapHeight;
 int mapWidth;
 unsigned int** mapData;
+
 GLuint asciiSpriteSheetTexture;
 GLuint arneSpriteSheetTexture;
 
@@ -429,7 +435,7 @@ void SetupGameLevel() {
 	}
 
 	// Initialize coin attributes
-	/*for (size_t i = 0; i < state.coins.size(); i++) {
+	for (size_t i = 0; i < state.coins.size(); i++) {
 		state.coins[i].sprite = SheetSprite(arneSpriteSheetTexture, 4.0f * 16.0f / 256.0f, 3.0f * 16.0f / 128.0f, 16.0f / 256.0f, 16.0f / 128.0f, 0.15f);
 		state.coins[i].size = glm::vec3(2.0f, 1.0f, 1.0f);
 		state.coins[i].velocity = glm::vec3(0.0f, 0.0f, 0.0f);
@@ -440,7 +446,7 @@ void SetupGameLevel() {
 		state.coins[i].collidedBottom = false;
 		state.coins[i].collidedLeft = false;
 		state.coins[i].collidedRight = false;
-	}*/
+	}
 }
 
 void Setup() {
@@ -519,12 +525,7 @@ void ProcessEvents() {
 	}
 }
 
-void Update() {
-	// Calculate elapsed time
-	float ticks = (float)SDL_GetTicks() / 1000.0f;
-	float elapsed = ticks - lastFrameTicks;
-	lastFrameTicks = ticks; // Reset
-
+void Update(float elapsed) {
 	// Call each entities' Update() method
 	state.player.Update(elapsed);
 	for (size_t i = 0; i < state.tiles.size(); i++) {
@@ -585,7 +586,23 @@ int main(int argc, char *argv[])
 	Setup();
 	while (!done) {
 		ProcessEvents();
-		Update();
+
+		// Calculate elapsed time
+		float ticks = (float)SDL_GetTicks() / 1000.0f;
+		float elapsed = ticks - lastFrameTicks;
+		lastFrameTicks = ticks; // Reset
+
+		// Use fixed timestep (instead of variable timestep)
+		elapsed += accumulator;
+		if (elapsed < FIXED_TIMESTEP) {
+			accumulator = elapsed;
+			continue;
+		}
+		while (elapsed >= FIXED_TIMESTEP) {
+			Update(FIXED_TIMESTEP);
+			elapsed -= FIXED_TIMESTEP;
+		}
+		accumulator = elapsed;
 		Render();
     }
 	Cleanup();
