@@ -33,6 +33,7 @@ using namespace std;
 #define TILE_SIZE 0.07f
 #define SPRITE_COUNT_X 16
 #define SPRITE_COUNT_Y 8
+#define FRICTION 1.0
 
 SDL_Window* displayWindow;
 ShaderProgram texturedProgram;  // For textured polygons
@@ -104,6 +105,10 @@ void SheetSprite::Draw(ShaderProgram &program) {
 	glDisableVertexAttribArray(program.texCoordAttribute);
 }
 
+float lerp(float v0, float v1, float t) {
+	return (1.0 - t)*v0 + t * v1;
+}
+
 enum EntityType { ENTITY_PLAYER, ENTITY_COIN, ENTITY_TILE };
 
 class Entity {
@@ -129,6 +134,12 @@ public:
 };
 
 void Entity::Update(float elapsed) {
+	velocity.x = lerp(velocity.x, 0.0f, elapsed * FRICTION);
+	velocity.y = lerp(velocity.y, 0.0f, elapsed * FRICTION);
+	
+	velocity.x += acceleration.x * elapsed;
+	velocity.y += acceleration.y * elapsed;
+
 	position.x += elapsed * velocity.x;
 	position.y += elapsed * velocity.y;
 }
@@ -394,7 +405,6 @@ void SetupGameLevel() {
 	// Initialize player attributes
 	state.player.sprite = SheetSprite(arneSpriteSheetTexture, 3.0f * 16.0f / 256.0f, 6.0f * 16.0f / 128.0f, 16.0f / 256.0f, 16.0f / 128.0f, 0.15f);
 	state.player.size = glm::vec3(2.0f, 1.0f, 1.0f); // x:y ratio is 2:1 due the sprite sheet image dimensions
-	state.player.position = glm::vec3(0.0f, 0.0f, 0.0f);
 	state.player.velocity = glm::vec3(0.0f, 0.0f, 0.0f);
 	state.player.acceleration = glm::vec3(0.0f, 0.0f, 0.0f);
 	state.player.isStatic = false;
@@ -509,13 +519,13 @@ void ProcessEvents() {
 	}
 	else if (mode == GAME_LEVEL) {
 		if (keys[SDL_SCANCODE_LEFT] && state.player.position.x - state.player.sprite.width > -1.777f) {
-			state.player.velocity.x = -1.0f;
+			state.player.acceleration.x = -1.0f;
 		}
 		else if (keys[SDL_SCANCODE_RIGHT] && state.player.position.x + state.player.sprite.width < 1.777f) {
-			state.player.velocity.x = 1.0f;
+			state.player.acceleration.x = 1.0f;
 		}
 		else {
-			state.player.velocity.x = 0.0f;
+			state.player.acceleration.x = 0.0f;
 		}
 
 		
