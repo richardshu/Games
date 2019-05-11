@@ -97,8 +97,3 @@ location=44,17,1,1
 type=Coin
 location=39,21,1,1
 
-[ObjectsLayer]
-# Coin
-type=Coin
-location=35,25,1,1
-
