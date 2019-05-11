@@ -1,4 +1,2 @@
 ﻿  main.cpp
-c:\users\richa\documents\projects\cs3113\hw4\nyucodebase\main.cpp(305): warning C4244: 'initializing': conversion from 'int' to 'float', possible loss of data
-c:\users\richa\documents\projects\cs3113\hw4\nyucodebase\main.cpp(306): warning C4244: 'initializing': conversion from 'int' to 'float', possible loss of data
   NYUCodebase.vcxproj -> C:\Users\richa\Documents\Projects\cs3113\hw4\Debug\NYUCodebase.exe

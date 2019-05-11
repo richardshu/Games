@@ -28,18 +28,19 @@
 using namespace std;
 
 SDL_Window* displayWindow;
-ShaderProgram program;			// For untextured polygons
 ShaderProgram texturedProgram;  // For textured polygons
 
 bool done = false;				// Game loop
 float lastFrameTicks = 0.0f;	// Set time to an initial value of 0
 
+#define TILE_SIZE 0.07f
+#define SPRITE_COUNT_X 16
+#define SPRITE_COUNT_Y 8
 int mapHeight;
 int mapWidth;
-unsigned char** levelData;
-int TILE_SIZE = 16;	// 16 x 16 pixels
-
+unsigned int** mapData;
 GLuint asciiSpriteSheetTexture;
+GLuint arneSpriteSheetTexture;
 
 class SheetSprite {
 public:
@@ -67,29 +68,26 @@ SheetSprite::SheetSprite(unsigned int textureID, float u, float v, float width, 
 }
 
 void SheetSprite::Draw(ShaderProgram &program) {
-	program.SetColor(1.0f, 0.0f, 0.0f, 1.0f);
 	float aspectRatio = width / height;
-	float vertices[] = { 
+	float vertices[] = {
 		-0.5f * size * aspectRatio, -0.5f * size,
-		-0.5f * size * aspectRatio,  0.5f * size, 
-		 0.5f * size * aspectRatio, -0.5f * size,
-		 0.5f * size * aspectRatio, -0.5f * size,
+		 0.5f * size * aspectRatio,  0.5f * size,
 		-0.5f * size * aspectRatio,  0.5f * size,
-		 0.5f * size * aspectRatio,  0.5f * size
+		 0.5f * size * aspectRatio,  0.5f * size,
+		-0.5f * size * aspectRatio, -0.5f * size,
+		 0.5f * size * aspectRatio, -0.5f * size
+	};
+	float texCoords[] = {
+		u, v + height,
+		u + width, v,
+		u, v,
+		u + width, v,
+		u, v + height,
+		u + width, v + height
 	};
 	glVertexAttribPointer(program.positionAttribute, 2, GL_FLOAT, false, 0, vertices);
 	glEnableVertexAttribArray(program.positionAttribute);
 
-	// UV coords are upside down relative to vertices
-	// (everything is rotated 180 degrees around the origin)
-	float texCoords[] = {
-		u + width, v + height,
-		u + width, v,
-		u, v + height,
-		u, v + height,
-		u + width, v,
-		u, v
-	};
 	glVertexAttribPointer(program.texCoordAttribute, 2, GL_FLOAT, false, 0, texCoords);
 	glEnableVertexAttribArray(program.texCoordAttribute);
 
@@ -100,7 +98,7 @@ void SheetSprite::Draw(ShaderProgram &program) {
 	glDisableVertexAttribArray(program.texCoordAttribute);
 }
 
-enum EntityType { ENTITY_PLAYER, ENTITY_ENEMY, ENTITY_COIN };
+enum EntityType { ENTITY_PLAYER, ENTITY_COIN, ENTITY_TILE };
 
 class Entity {
 public:
@@ -135,7 +133,7 @@ void Entity::Draw(ShaderProgram &program) {
 	modelMatrix = glm::scale(modelMatrix, size);
 	program.SetModelMatrix(modelMatrix);
 	
-	// Designate the creation of vertex and texture 
+	// Delegate the creation of vertex and texture 
 	// coordinates to the sprite's Draw() method
 	sprite.Draw(program);
 }
@@ -143,6 +141,23 @@ void Entity::Draw(ShaderProgram &program) {
 bool Entity::CollidesWith(Entity &entity) {
 	
 	return false;
+}
+
+GLuint LoadTexture(const char *filePath) {
+	int w, h, comp;
+	unsigned char* image = stbi_load(filePath, &w, &h, &comp, STBI_rgb_alpha);
+	if (image == NULL) {
+		std::cout << "Unable to load image. Make sure the path is correct\n";
+		assert(false);
+	}
+	GLuint retTexture;
+	glGenTextures(1, &retTexture);
+	glBindTexture(GL_TEXTURE_2D, retTexture);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, w, h, 0, GL_RGBA, GL_UNSIGNED_BYTE, image);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	stbi_image_free(image);
+	return retTexture;
 }
 
 void DrawText(ShaderProgram &program, int fontTexture, std::string text, float size, float spacing) {
@@ -183,42 +198,68 @@ void DrawText(ShaderProgram &program, int fontTexture, std::string text, float s
 	glDrawArrays(GL_TRIANGLES, 0, 6 * (int)text.size());
 	glDisableVertexAttribArray(program.positionAttribute);
 	glDisableVertexAttribArray(program.texCoordAttribute);
-;}
+}
 
-GLuint LoadTexture(const char *filePath) {
-	int w, h, comp;
-	unsigned char* image = stbi_load(filePath, &w, &h, &comp, STBI_rgb_alpha);
-	if (image == NULL) {
-		std::cout << "Unable to load image. Make sure the path is correct\n";
-		assert(false);
+void DrawTileMap(ShaderProgram &program, unsigned int spriteSheetTexture) {
+	vector<float> vertexData;
+	vector<float> texCoordData;
+	for (int y = 0; y < mapHeight; y++) {
+		for (int x = 0; x < mapWidth; x++) {
+			float u = (float)(((int)mapData[y][x]) % SPRITE_COUNT_X) / (float)SPRITE_COUNT_X;
+			float v = (float)(((int)mapData[y][x]) / SPRITE_COUNT_X) / (float)SPRITE_COUNT_Y;
+			float spriteWidth = 1.0f / (float)SPRITE_COUNT_X;
+			float spriteHeight = 1.0f / (float)SPRITE_COUNT_Y;
+			vertexData.insert(vertexData.end(), {
+				TILE_SIZE * x, -TILE_SIZE * y,
+				TILE_SIZE * x, (-TILE_SIZE * y) - TILE_SIZE,
+				(TILE_SIZE * x) + TILE_SIZE, (-TILE_SIZE * y) - TILE_SIZE,
+				TILE_SIZE * x, -TILE_SIZE * y,
+				(TILE_SIZE * x) + TILE_SIZE, (-TILE_SIZE * y) - TILE_SIZE,
+				(TILE_SIZE * x) + TILE_SIZE, -TILE_SIZE * y
+			});
+			texCoordData.insert(texCoordData.end(), {
+				u, v,
+				u, v + (spriteHeight),
+				u + spriteWidth, v + (spriteHeight),
+				u, v,
+				u + spriteWidth, v + (spriteHeight),
+				u + spriteWidth, v
+			});
+		}
 	}
-	GLuint retTexture;
-	glGenTextures(1, &retTexture);
-	glBindTexture(GL_TEXTURE_2D, retTexture);
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, w, h, 0, GL_RGBA, GL_UNSIGNED_BYTE, image);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-	stbi_image_free(image);
-	return retTexture;
+	glBindTexture(GL_TEXTURE_2D, spriteSheetTexture);
+
+	glVertexAttribPointer(program.positionAttribute, 2, GL_FLOAT, false, 0, vertexData.data());
+	glEnableVertexAttribArray(program.positionAttribute);
+
+	glVertexAttribPointer(program.texCoordAttribute, 2, GL_FLOAT, false, 0, texCoordData.data());
+	glEnableVertexAttribArray(program.texCoordAttribute);
+
+	glDrawArrays(GL_TRIANGLES, 0, 6);
+	glDisableVertexAttribArray(program.positionAttribute);
+	glDisableVertexAttribArray(program.texCoordAttribute);
 }
 
 enum GameMode { MAIN_MENU, GAME_LEVEL };
 
 struct GameState {
 	Entity player;
-	std::vector<Entity> lasers;
-	std::vector<Entity> meteors;
-	
+	std::vector<Entity> coins;
+	std::vector<Entity> tiles;
 };
 
 GameState state;
 GameMode mode;
 
-
 bool Collides(Entity &entity1, Entity &entity2) {
 	float distanceX = abs(entity1.position.x - entity2.position.x) - (entity1.sprite.width + entity2.sprite.width);
 	float distanceY = abs(entity1.position.y - entity2.position.y) - (entity1.sprite.height + entity2.sprite.height);
 	return distanceX < 0 && distanceY < 0;
+}
+
+void worldToTileCoordinates(float worldX, float worldY, int *gridX, int *gridY) {
+	*gridX = (int)(worldX / TILE_SIZE);
+	*gridY = (int)(worldY / -TILE_SIZE);
 }
 
 bool readHeader(std::ifstream &inputFileStream) {
@@ -242,9 +283,9 @@ bool readHeader(std::ifstream &inputFileStream) {
 		return false;
 	}
 	// Allocate space for our level map data
-	levelData = new unsigned char*[mapHeight];
+	mapData = new unsigned int*[mapHeight];
 	for (int i = 0; i < mapHeight; ++i) {
-		levelData[i] = new unsigned char[mapWidth];
+		mapData[i] = new unsigned int[mapWidth];
 	}
 	return true;
 }
@@ -264,13 +305,13 @@ bool readLayerData(std::ifstream &inputFileStream) {
 				string tile;
 				for (int x = 0; x < mapWidth; x++) {
 					getline(lineStream, tile, ',');
-					unsigned char val = (unsigned char) atoi(tile.c_str());
+					unsigned int val = (unsigned int)atoi(tile.c_str());
 					if (val > 0) {
 						// be careful, the tiles in this format are indexed from 1 not 0
-						levelData[y][x] = val - 1;
+						mapData[y][x] = val - 1;
 					}
 					else {
-						levelData[y][x] = 0;
+						mapData[y][x] = 0;
 					}
 				}
 			}
@@ -280,8 +321,18 @@ bool readLayerData(std::ifstream &inputFileStream) {
 }
 
 bool placeEntity(const string& type, float placeX, float placeY) {
-
-
+	// Shift the x and y coordinates from the center to the top left corner of the screen
+	// This way the map starts at the top left corner
+	placeX -= 1.777f;
+	placeY += 1.0f;
+	if (type == "Coin") {
+		Entity coin;
+		coin.position = glm::vec3(placeX, placeY, 0.0f);
+		state.coins.push_back(coin);
+	}
+	else if (type == "Player") {
+		state.player.position = glm::vec3(placeX, placeY, 0.0f);
+	}
 	return true;
 }
 
@@ -332,17 +383,64 @@ void SetupMainMenu() {}
 
 void SetupGameLevel() {
 	readFlaremap();
+	DrawTileMap(texturedProgram, arneSpriteSheetTexture);
 
-	// Load sprites from sprite sheets
-	//SheetSprite playerSprite = SheetSprite(spaceSpriteSheetTexture, 112.0f / 1024.0f, 866.0f / 1024.0f, 112.0f / 1024.0f, 75.0f / 1024.0f, 0.2f);
-
-	// Initialize player spaceship
-	//state.player.sprite = playerSprite;
-	state.player.position = glm::vec3(0.0f, -0.75f, 0.0f);
+	// Initialize player attributes
+	state.player.sprite = SheetSprite(arneSpriteSheetTexture, 3.0f * 16.0f / 256.0f, 6.0f * 16.0f / 128.0f, 16.0f / 256.0f, 16.0f / 128.0f, 0.15f);
+	state.player.size = glm::vec3(2.0f, 1.0f, 1.0f); // x:y ratio is 2:1 due the sprite sheet image dimensions
+	state.player.position = glm::vec3(0.0f, 0.0f, 0.0f);
 	state.player.velocity = glm::vec3(0.0f, 0.0f, 0.0f);
-	state.player.size = glm::vec3(1.0f, 1.0f, 1.0f);
-	
-	
+	state.player.acceleration = glm::vec3(0.0f, 0.0f, 0.0f);
+	state.player.isStatic = false;
+	state.player.collidedTop = false;
+	state.player.collidedBottom = false;
+	state.player.collidedLeft = false;
+	state.player.collidedRight = false;
+
+	// Initialize tile attributes
+	for (int y = 0; y < mapHeight; y++) {
+		for (int x = 0; x < mapWidth; x++) {
+			if (mapData[y][x] != 0) {
+				// Pass in mapData[y][x] (an index) into the SheetSprite constructor and let it handle the correct sprite image to render
+				Entity tile;
+				if (mapData[y][x] == 1) {
+					tile.sprite = SheetSprite(arneSpriteSheetTexture, 1.0f * 16.0f / 256.0f, 0.0f * 16.0f / 128.0f, 16.0f / 256.0f, 16.0f / 128.0f, 0.15f);
+				}
+				else if (mapData[y][x] == 2) {
+					tile.sprite = SheetSprite(arneSpriteSheetTexture, 2.0f * 16.0f / 256.0f, 0.0f * 16.0f / 128.0f, 16.0f / 256.0f, 16.0f / 128.0f, 0.15f);
+				}
+				else if (mapData[y][x] == 20) {
+					tile.sprite = SheetSprite(arneSpriteSheetTexture, 4.0f * 16.0f / 256.0f, 1.0f * 16.0f / 128.0f, 16.0f / 256.0f, 16.0f / 128.0f, 0.15f);
+				}
+				tile.size = glm::vec3(2.0f, 1.0f, 1.0f);
+				// Convert tile coordinates to world coordinates
+				tile.position = glm::vec3(x * TILE_SIZE - 1.777f, y * -TILE_SIZE + 1.0f, 0.0f);
+				tile.velocity = glm::vec3(0.0f, 0.0f, 0.0f);
+				tile.acceleration = glm::vec3(0.0f, 0.0f, 0.0f);
+				tile.isStatic = true;
+				tile.entityType = ENTITY_TILE;
+				tile.collidedTop = false;
+				tile.collidedBottom = false;
+				tile.collidedLeft = false;
+				tile.collidedRight = false;
+				state.tiles.push_back(tile);
+			}
+		}
+	}
+
+	// Initialize coin attributes
+	/*for (size_t i = 0; i < state.coins.size(); i++) {
+		state.coins[i].sprite = SheetSprite(arneSpriteSheetTexture, 4.0f * 16.0f / 256.0f, 3.0f * 16.0f / 128.0f, 16.0f / 256.0f, 16.0f / 128.0f, 0.15f);
+		state.coins[i].size = glm::vec3(2.0f, 1.0f, 1.0f);
+		state.coins[i].velocity = glm::vec3(0.0f, 0.0f, 0.0f);
+		state.coins[i].acceleration = glm::vec3(0.0f, 0.0f, 0.0f);
+		state.coins[i].isStatic = true;
+		state.coins[i].entityType = ENTITY_COIN;
+		state.coins[i].collidedTop = false;
+		state.coins[i].collidedBottom = false;
+		state.coins[i].collidedLeft = false;
+		state.coins[i].collidedRight = false;
+	}*/
 }
 
 void Setup() {
@@ -357,12 +455,12 @@ void Setup() {
 
 	glViewport(0, 0, 640, 360);
 
-	// Load shader programs
-	//program.Load(RESOURCE_FOLDER"vertex.glsl", RESOURCE_FOLDER"fragment.glsl");
+	// Load shader program
 	texturedProgram.Load(RESOURCE_FOLDER"vertex_textured.glsl", RESOURCE_FOLDER"fragment_textured.glsl");
 
 	// Load sprite sheets
 	asciiSpriteSheetTexture = LoadTexture(RESOURCE_FOLDER"ascii_spritesheet.png");
+	arneSpriteSheetTexture = LoadTexture(RESOURCE_FOLDER"arne_spritesheet.png");
 
 	// "Blend" textures so their background doesn't show
 	glEnable(GL_BLEND);
@@ -372,11 +470,11 @@ void Setup() {
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
 
+	// Set background color to sky blue
+	glClearColor(0.6f, 0.9f, 1.0f, 1.0f);
+
 	glm::mat4 viewMatrix = glm::mat4(1.0f);
 	glm::mat4 projectionMatrix = glm::ortho(-1.777f, 1.777f, -1.0f, 1.0f, -1.0f, 1.0f);
-
-	program.SetViewMatrix(viewMatrix);
-	program.SetProjectionMatrix(projectionMatrix);
 
 	texturedProgram.SetViewMatrix(viewMatrix);
 	texturedProgram.SetProjectionMatrix(projectionMatrix);
@@ -427,10 +525,14 @@ void Update() {
 	float elapsed = ticks - lastFrameTicks;
 	lastFrameTicks = ticks; // Reset
 
+	// Call each entities' Update() method
 	state.player.Update(elapsed);
-
-	// Call each entities Update() method
-
+	for (size_t i = 0; i < state.tiles.size(); i++) {
+		state.tiles[i].Update(elapsed);
+	}
+	for (size_t i = 0; i < state.coins.size(); i++) {
+		state.coins[i].Update(elapsed);
+	}
 }
 
 void RenderMainMenu() {
@@ -446,10 +548,19 @@ void RenderMainMenu() {
 }
 
 void RenderGameLevel() {
-	state.player.Draw(texturedProgram);
-	
 	// Loop through entities and call their draw methods
-	
+	state.player.Draw(texturedProgram);
+	for (size_t i = 0; i < state.tiles.size(); i++) {
+		state.tiles[i].Draw(texturedProgram);
+	}
+	for (size_t i = 0; i < state.coins.size(); i++) {
+		state.coins[i].Draw(texturedProgram);
+	}
+
+	// Allow scrolling by setting the view matrix to the inverse of the player's position coordinates
+	glm::mat4 viewMatrix = glm::mat4(1.0f);
+	viewMatrix = glm::translate(viewMatrix, glm::vec3(-state.player.position.x, -state.player.position.y, -state.player.position.z));
+	texturedProgram.SetViewMatrix(viewMatrix);
 }
 
 void Render() {
@@ -478,6 +589,6 @@ int main(int argc, char *argv[])
 		Render();
     }
 	Cleanup();
-    SDL_Quit();
+	SDL_Quit();
     return 0;
 }
