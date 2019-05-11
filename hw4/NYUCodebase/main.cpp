@@ -33,7 +33,8 @@ using namespace std;
 #define TILE_SIZE 0.07f
 #define SPRITE_COUNT_X 16
 #define SPRITE_COUNT_Y 8
-#define FRICTION 1.0
+#define FRICTION 2.0f
+#define GRAVITY -2.0f
 
 SDL_Window* displayWindow;
 ShaderProgram texturedProgram;  // For textured polygons
@@ -105,10 +106,6 @@ void SheetSprite::Draw(ShaderProgram &program) {
 	glDisableVertexAttribArray(program.texCoordAttribute);
 }
 
-float lerp(float v0, float v1, float t) {
-	return (1.0 - t)*v0 + t * v1;
-}
-
 enum EntityType { ENTITY_PLAYER, ENTITY_COIN, ENTITY_TILE };
 
 class Entity {
@@ -133,9 +130,12 @@ public:
 	bool collidedRight;
 };
 
+float lerp(float v0, float v1, float t) {
+	return (1.0 - t)*v0 + t * v1;
+}
+
 void Entity::Update(float elapsed) {
 	velocity.x = lerp(velocity.x, 0.0f, elapsed * FRICTION);
-	velocity.y = lerp(velocity.y, 0.0f, elapsed * FRICTION);
 	
 	velocity.x += acceleration.x * elapsed;
 	velocity.y += acceleration.y * elapsed;
@@ -155,9 +155,10 @@ void Entity::Draw(ShaderProgram &program) {
 	sprite.Draw(program);
 }
 
-bool Entity::CollidesWith(Entity &entity) {
-	
-	return false;
+bool Entity::CollidesWith(Entity &otherEntity) {
+	float distanceX = abs(position.x - otherEntity.position.x) - (sprite.width + otherEntity.sprite.width);
+	float distanceY = abs(position.y - otherEntity.position.y) - (sprite.height + otherEntity.sprite.height);
+	return distanceX < 0 && distanceY < 0;
 }
 
 GLuint LoadTexture(const char *filePath) {
@@ -267,12 +268,6 @@ struct GameState {
 
 GameState state;
 GameMode mode;
-
-bool Collides(Entity &entity1, Entity &entity2) {
-	float distanceX = abs(entity1.position.x - entity2.position.x) - (entity1.sprite.width + entity2.sprite.width);
-	float distanceY = abs(entity1.position.y - entity2.position.y) - (entity1.sprite.height + entity2.sprite.height);
-	return distanceX < 0 && distanceY < 0;
-}
 
 void worldToTileCoordinates(float worldX, float worldY, int *gridX, int *gridY) {
 	*gridX = (int)(worldX / TILE_SIZE);
@@ -406,7 +401,7 @@ void SetupGameLevel() {
 	state.player.sprite = SheetSprite(arneSpriteSheetTexture, 3.0f * 16.0f / 256.0f, 6.0f * 16.0f / 128.0f, 16.0f / 256.0f, 16.0f / 128.0f, 0.15f);
 	state.player.size = glm::vec3(2.0f, 1.0f, 1.0f); // x:y ratio is 2:1 due the sprite sheet image dimensions
 	state.player.velocity = glm::vec3(0.0f, 0.0f, 0.0f);
-	state.player.acceleration = glm::vec3(0.0f, 0.0f, 0.0f);
+	state.player.acceleration = glm::vec3(0.0f, GRAVITY, 0.0f);
 	state.player.isStatic = false;
 	state.player.collidedTop = false;
 	state.player.collidedBottom = false;
