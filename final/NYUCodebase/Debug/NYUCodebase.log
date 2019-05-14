@@ -1,4 +1,9 @@
+<<<<<<< HEAD
 ﻿  main.cpp
   ShaderProgram.cpp
   Generating Code...
   NYUCodebase.vcxproj -> D:\Jack Zheng\Desktop\NYU\Intro to Game Programming\Final\cs3113\final\Debug\NYUCodebase.exe
+=======
+﻿  main.cpp
+  NYUCodebase.vcxproj -> C:\Users\richa\Documents\Projects\cs3113\final\Debug\NYUCodebase.exe
+>>>>>>> bc383cf7eec5fbd5088d3e9ea2a672114d40c437
