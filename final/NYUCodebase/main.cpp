@@ -32,7 +32,6 @@ using namespace std;
 #define TILE_SIZE 0.07f
 #define SPRITE_COUNT_X 16
 #define SPRITE_COUNT_Y 8
-#define FRICTION 2.0f
 
 SDL_Window* displayWindow;
 ShaderProgram texturedProgram;  // For textured polygons
@@ -132,16 +131,7 @@ private:
 	void Entity::ResolveCollisionY(Entity &otherEntity);
 };
 
-float lerp(float v0, float v1, float t) {
-	return (1.0 - t)*v0 + t * v1;
-}
-
 void Entity::Update(float elapsed) {
-	velocity.x = lerp(velocity.x, 0.0f, elapsed * FRICTION);
-	
-	velocity.x += acceleration.x * elapsed;
-	velocity.y += acceleration.y * elapsed;
-
 	position.x += elapsed * velocity.x;
 	position.y += elapsed * velocity.y;
 }
@@ -283,8 +273,7 @@ void SetupGameLevel() {
 	// Initialize player attributes
 	state.player.sprite = SheetSprite(arneSpriteSheetTexture, 3.0f * 16.0f / 256.0f, 6.0f * 16.0f / 128.0f, 16.0f / 256.0f, 16.0f / 128.0f, 0.15f);
 	state.player.size = glm::vec3(2.0f, 1.0f, 1.0f);
-	state.player.velocity = glm::vec3(0.0f, 0.0f, 0.0f);
-	state.player.acceleration = glm::vec3(0.0f, 0.0f, 0.0f);
+	state.player.position = glm::vec3(0.0f, 0.0f, 0.0f);
 	state.player.isStatic = false;
 	state.player.entityType = ENTITY_PLAYER;
 	state.player.collidedTop = false;
@@ -308,7 +297,7 @@ void SetupGameLevel() {
 
 	// Initialize bullet attributes
 	for (size_t i = 0; i < state.bullets.size(); i++) {
-		//state.bullets[i].sprite = SheetSprite(arneSpriteSheetTexture, 4.0f * 16.0f / 256.0f, 3.0f * 16.0f / 128.0f, 16.0f / 256.0f, 16.0f / 128.0f, 0.15f);
+		state.bullets[i].sprite = SheetSprite(arneSpriteSheetTexture, 4.0f * 16.0f / 256.0f, 3.0f * 16.0f / 128.0f, 16.0f / 256.0f, 16.0f / 128.0f, 0.15f);
 		state.bullets[i].size = glm::vec3(1.0f, 1.0f, 1.0f);
 		state.bullets[i].velocity = glm::vec3(0.0f, 0.0f, 0.0f);
 		state.bullets[i].acceleration = glm::vec3(0.0f, 0.0f, 0.0f);
@@ -323,7 +312,7 @@ void SetupGameLevel() {
 
 void Setup() {
 	SDL_Init(SDL_INIT_VIDEO);
-	displayWindow = SDL_CreateWindow("Final Project", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 640, 360, SDL_WINDOW_OPENGL);
+	displayWindow = SDL_CreateWindow("Final Project", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 640, 640, SDL_WINDOW_OPENGL);
 	SDL_GLContext context = SDL_GL_CreateContext(displayWindow);
 	SDL_GL_MakeCurrent(displayWindow, context);
 
@@ -331,7 +320,7 @@ void Setup() {
 	glewInit();
 #endif
 
-	glViewport(0, 0, 640, 360);
+	glViewport(0, 0, 640, 640);
 
 	// Load shader program
 	texturedProgram.Load(RESOURCE_FOLDER"vertex_textured.glsl", RESOURCE_FOLDER"fragment_textured.glsl");
@@ -352,7 +341,7 @@ void Setup() {
 	glClearColor(0.6f, 0.9f, 1.0f, 1.0f);
 
 	glm::mat4 viewMatrix = glm::mat4(1.0f);
-	glm::mat4 projectionMatrix = glm::ortho(-1.777f, 1.777f, -1.0f, 1.0f, -1.0f, 1.0f);
+	glm::mat4 projectionMatrix = glm::ortho(-1.777f, 1.777f, -1.777f, 1.777f, -1.0f, 1.0f);
 
 	texturedProgram.SetViewMatrix(viewMatrix);
 	texturedProgram.SetProjectionMatrix(projectionMatrix);
@@ -382,29 +371,33 @@ void ProcessEvents() {
 	else if (mode == GAME_LEVEL) {
 		// Move left
 		if (keys[SDL_SCANCODE_LEFT]) {
-			state.player.acceleration.x = -1.0f;
+			state.player.velocity.y = 0.0f;
+			state.player.velocity.x = -1.0f;
 		}
 		// Move right
 		else if (keys[SDL_SCANCODE_RIGHT]) {
-			state.player.acceleration.x = 1.0f;
+			state.player.velocity.y = 0.0f;
+			state.player.velocity.x = 1.0f;
 		}
 		// Move up
 		else if (keys[SDL_SCANCODE_UP]) {
-			state.player.acceleration.y = 1.0f;
+			state.player.velocity.x = 0.0f;
+			state.player.velocity.y = 1.0f;
 		}
 		// Move down
 		else if (keys[SDL_SCANCODE_DOWN]) {
-			state.player.acceleration.y = -1.0f;
+			state.player.velocity.x = 0.0f;
+			state.player.velocity.y = -1.0f;
 		}
 		else {
-			state.player.acceleration.x = 0.0f;
-			state.player.acceleration.y = 0.0f;
+			state.player.velocity.x = 0.0f;
+			state.player.velocity.y = 0.0f;
 		}
 
 		// Shoot bullet
-		//if (event.key.keysym.scancode == ) {
+		if (event.key.keysym.scancode == SDL_SCANCODE_SPACE) {
 			
-		//}
+		}
 	}
 }
 
@@ -423,7 +416,7 @@ void RenderMainMenu() {
 	glm::mat4 modelMatrix = glm::mat4(1.0f);
 	modelMatrix = glm::translate(modelMatrix, glm::vec3(-0.625f, 0.25f, 0.0f));
 	texturedProgram.SetModelMatrix(modelMatrix);
-	DrawText(texturedProgram, asciiSpriteSheetTexture, "Final Project", 0.3f, -0.16f);
+	DrawText(texturedProgram, asciiSpriteSheetTexture, "Survivor", 0.3f, -0.16f);
 
 	modelMatrix = glm::mat4(1.0f);
 	modelMatrix = glm::translate(modelMatrix, glm::vec3(-0.1f, -0.1f, 0.0f));
