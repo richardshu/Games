@@ -199,7 +199,7 @@ void Entity::ResolveCollisionY(Entity& otherEntity) {
 
 	// A top collision occurred
 	if (position.y < otherEntity.position.y) {
-		position.y -= penetration - 0.00001f;
+		position.y -= penetration + 0.00001f;
 		collidedBottom = true;
 	}
 
