@@ -43,7 +43,8 @@ enum Direction { LEFT, RIGHT, UP, DOWN };
 enum EntityType { PLAYER, ENEMY, BULLET };
 GLuint asciiSpriteSheetTexture;
 GLuint bettySpriteSheet, georgeSpriteSheet;
-GLuint spacePackSpriteSheet;
+GLuint enemySpaceshipSpriteSheet;
+GLuint backgroundTexture;
 bool done = false;              // Game loop
 float lastFrameTicks = 0.0f;    // Set time to an initial value of 0
 float accumulator = 0.0f;
@@ -223,6 +224,7 @@ void Entity::ResolveCollisionY(Entity& otherEntity) {
 }
 
 struct MainMenuState {
+	GLuint backgroundTexture;
 	void DrawText(ShaderProgram &program, int fontTexture, std::string text, float size, float spacing);
 
 	void Setup();
@@ -236,6 +238,9 @@ struct GameState {
 	vector<Entity> BulletsBetty;
 	vector<Entity> BulletsGeorge;
 	vector<Entity> enemies;
+	int numEnemies;
+
+	GLuint backgroundTexture;
 
 	vector<SheetSprite> PlayerOneLeft;
 	vector<SheetSprite> PlayerOneRight;
@@ -250,8 +255,14 @@ struct GameState {
 	SheetSprite bulletBetty;
 	SheetSprite bulletGeorge;
 
-	void LoadSprites();
+	SheetSprite pinkEnemySpaceship;
+	SheetSprite blueEnemySpaceship;
+	SheetSprite greenEnemySpaceship;
+	SheetSprite yellowEnemySpaceship;
+	SheetSprite beigeEnemySpaceship;
+
 	void Setup();
+	void LoadSprites();
 	void ProcessEvents();
 	void Update(float elapsed);
 	void Render();
@@ -301,8 +312,29 @@ void MainMenuState::DrawText(ShaderProgram &program, int fontTexture, std::strin
 	glDisableVertexAttribArray(program.texCoordAttribute);
 }
 
+void setBackgroundTexture(GLuint backgroundTexture) {
+	glUseProgram(texturedProgram.programID);
+	glBindTexture(GL_TEXTURE_2D, backgroundTexture);
+
+	glm::mat4 modelMatrix = glm::mat4(1.0f);
+	modelMatrix = glm::scale(modelMatrix, glm::vec3(3.75f, 3.75f, 1.0f));
+	texturedProgram.SetModelMatrix(modelMatrix);
+
+	float vertices[] = { -0.5f, -0.5f, 0.5f,  0.5f,	-0.5f,  0.5f, 0.5f,  0.5f, -0.5f, -0.5f, 0.5f, -0.5f };
+	glVertexAttribPointer(texturedProgram.positionAttribute, 2, GL_FLOAT, false, 0, vertices);
+	glEnableVertexAttribArray(texturedProgram.positionAttribute);
+
+	float texCoords[] = { 0.0, 1.0, 1.0, 0.0, 0.0, 0.0,	1.0, 0.0, 0.0, 1.0,	1.0, 1.0 };
+	glVertexAttribPointer(texturedProgram.texCoordAttribute, 2, GL_FLOAT, false, 0, texCoords);
+	glEnableVertexAttribArray(texturedProgram.texCoordAttribute);
+
+	glDrawArrays(GL_TRIANGLES, 0, 6);
+	glDisableVertexAttribArray(texturedProgram.positionAttribute);
+	glDisableVertexAttribArray(texturedProgram.texCoordAttribute);
+}
+
 void GameState::LoadSprites() {
-	// Load Player One sprites
+	// Load Betty sprites
 	for (int i = 0; i < 16; i++) {
 		int row = i / 4;
 		int col = i % 4;
@@ -324,7 +356,7 @@ void GameState::LoadSprites() {
 			break;
 		}
 	}
-	// Load Player Two sprites
+	// Load George sprites
 	for (int i = 0; i < 16; i++) {
 		int row = i / 4;
 		int col = i % 4;
@@ -347,18 +379,33 @@ void GameState::LoadSprites() {
 		}
 	}
 
-	// Load Player Bullets
+	// Load Player Bullets sprites
 	GLuint bulletBettyTexture = LoadTexture("assets/BulletBetty.png");
 	bulletBetty = SheetSprite(bulletBettyTexture, 0.0f / 24.0f, 0.0f / 24.0f, 24.0f / 24.0f, 24.0f / 24.0f, 1.0f);
 	GLuint bulletGeorgeTexture = LoadTexture("assets/BulletGeorge.png");
 	bulletGeorge = SheetSprite(bulletGeorgeTexture, 0.0f / 24.0f, 0.0f / 24.0f, 24.0f / 24.0f, 24.0f / 24.0f, 1.0f);
+	
+	// Load enemy spaceship sprites
+	pinkEnemySpaceship = SheetSprite(enemySpaceshipSpriteSheet, 0.0f / 512.0f, 294.0f / 512.0f, 124.0f / 512.0f, 127.0f / 512.0f, 1.0f);
+	blueEnemySpaceship = SheetSprite(enemySpaceshipSpriteSheet, 248.0f / 512.0f, 0.0f / 512.0f, 124.0f / 512.0f, 145.0f / 512.0f, 1.0f);
+	greenEnemySpaceship = SheetSprite(enemySpaceshipSpriteSheet, 124.0f / 512.0f, 144.0f / 512.0f, 124.0f / 512.0f, 123.0f / 512.0f, 1.0f);
+	yellowEnemySpaceship = SheetSprite(enemySpaceshipSpriteSheet, 0.0f / 512.0f, 0.0f / 512.0f, 124.0f / 512.0f, 108.0f / 512.0f, 1.0f);
+	beigeEnemySpaceship = SheetSprite(enemySpaceshipSpriteSheet, 372.0f / 512.0f, 0.0f / 512.0f, 124.0f / 512.0f, 122.0f / 512.0f, 1.0f);
 }
 
 void MainMenuState::Setup() {
+	this->backgroundTexture = LoadTexture("assets/main_menu_background.jpg");
+	setBackgroundTexture(backgroundTexture);
+
+	// Play button
+
+	// Quit button
 
 }
 
 void GameState::Setup() {
+	this->backgroundTexture = LoadTexture("assets/game_background.png");
+
 	this->LoadSprites();
 
 	this->Betty.sprite = this->PlayerOneDown.at(0);
@@ -396,11 +443,46 @@ void GameState::Setup() {
 		bullet.velocity = glm::vec3(0.0f, 0.0f, 0.0f);
 		this->BulletsGeorge.push_back(bullet);
 	}
+
+	// Initialize enemy attributes
+	this->numEnemies = 10;
+	for (size_t i = 0; i < this->numEnemies; i++) {
+		Entity enemy;
+		enemy.entityType = ENEMY;
+		enemy.size = glm::vec3(0.3f, 0.3f, 1.0f);
+		enemy.velocity = glm::vec3(0.0f, -0.1f, 0.0f);
+
+		// Randomly pick the starting position of the enemy
+		float x = static_cast <float> (rand()) / (static_cast <float> (RAND_MAX / 2.0f));	// Get a random float between 0.0 and 2.0
+		enemy.position.x = -1.0f + x;
+		enemy.position.z = 0.0f;
+		int topOrBottom = rand() % 2;
+		if (topOrBottom) {
+			enemy.position.y = 2.0f;	// Top
+			enemy.velocity.y = -0.1f;	// Go down
+		}
+		else {
+			enemy.position.y = -2.0f;	// Bottom
+			enemy.velocity.y = 0.1f;	// Go up
+		}
+
+		// Randomly pick the color of the enemy
+		int enemySpriteIndex = rand() % 5;
+		switch (enemySpriteIndex) {
+		case 0: enemy.sprite = this->pinkEnemySpaceship; break;
+		case 1: enemy.sprite = this->blueEnemySpaceship; break;
+		case 2: enemy.sprite = this->greenEnemySpaceship; break;
+		case 3: enemy.sprite = this->yellowEnemySpaceship; break;
+		case 4: enemy.sprite = this->beigeEnemySpaceship; break;
+		}
+
+		this->enemies.push_back(enemy);
+	}
 }
 
 void Setup() {
 	SDL_Init(SDL_INIT_VIDEO);
-	displayWindow = SDL_CreateWindow("Final Project", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 640, 640, SDL_WINDOW_OPENGL);
+	displayWindow = SDL_CreateWindow("Alien Invasion", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 640, 640, SDL_WINDOW_OPENGL);
 	SDL_GLContext context = SDL_GL_CreateContext(displayWindow);
 	SDL_GL_MakeCurrent(displayWindow, context);
 
@@ -418,7 +500,8 @@ void Setup() {
 	asciiSpriteSheetTexture = LoadTexture("assets/ascii_spritesheet.png");
 	bettySpriteSheet = LoadTexture("assets/betty_0.png");
 	georgeSpriteSheet = LoadTexture("assets/george_0.png");
-	spacePackSpriteSheet = LoadTexture("assets/SpacePack/Spritesheet/uipackSpace_sheet.png");
+	enemySpaceshipSpriteSheet = LoadTexture("assets/SpaceShips/enemy_spaceship_spritesheet.png");
+	backgroundTexture = LoadTexture("assets/game_background.png");
 
 	// "Blend" textures so their background doesn't show
 	glEnable(GL_BLEND);
@@ -473,25 +556,25 @@ void GameState::ProcessEvents() {
 	// Player One movement
 	this->Betty.velocity.x = 0.0f;
 	this->Betty.velocity.y = 0.0f;
-	if (keys[SDL_SCANCODE_LEFT]) {
+	if (keys[SDL_SCANCODE_LEFT] && this->Betty.position.x > -1.0f) {
 		this->Betty.velocity.x = -1.0f;
 		if (!keys[SDL_SCANCODE_M]) {
 			this->Betty.faceDirection = LEFT;
 		}
 	}
-	if (keys[SDL_SCANCODE_RIGHT]) {
+	if (keys[SDL_SCANCODE_RIGHT] && this->Betty.position.x  < 1.0f) {
 		this->Betty.velocity.x = 1.0f;
 		if (!keys[SDL_SCANCODE_M]) {
 			this->Betty.faceDirection = RIGHT;
 		}
 	}
-	if (keys[SDL_SCANCODE_UP]) {
+	if (keys[SDL_SCANCODE_UP] && this->Betty.position.y + this->Betty.sprite.height/2 < 1.777f) {
 		this->Betty.velocity.y = 1.0f;
 		if (!keys[SDL_SCANCODE_M]) {
 			this->Betty.faceDirection = UP;
 		}
 	}
-	if (keys[SDL_SCANCODE_DOWN]) {
+	if (keys[SDL_SCANCODE_DOWN] && this->Betty.position.y - this->Betty.sprite.height/2 > -1.777f) {
 		this->Betty.velocity.y = -1.0f;
 		if (!keys[SDL_SCANCODE_M]) {
 			this->Betty.faceDirection = DOWN;
@@ -529,25 +612,25 @@ void GameState::ProcessEvents() {
 	// Player Two movement
 	this->George.velocity.x = 0.0f;
 	this->George.velocity.y = 0.0f;
-	if (keys[SDL_SCANCODE_A]) {
+	if (keys[SDL_SCANCODE_A] && this->George.position.x > -1.0f) {
 		this->George.velocity.x = -1.0f;
 		if (!keys[SDL_SCANCODE_G]) {
 			this->George.faceDirection = LEFT;
 		}
 	}
-	if (keys[SDL_SCANCODE_D]) {
+	if (keys[SDL_SCANCODE_D] && this->George.position.x < 1.0f) {
 		this->George.velocity.x = 1.0f;
 		if (!keys[SDL_SCANCODE_G]) {
 			this->George.faceDirection = RIGHT;
 		}
 	}
-	if (keys[SDL_SCANCODE_W]) {
+	if (keys[SDL_SCANCODE_W] && this->George.position.y + this->George.sprite.height/2 < 1.777f) {
 		this->George.velocity.y = 1.0f;
 		if (!keys[SDL_SCANCODE_G]) {
 			this->George.faceDirection = UP;
 		}
 	}
-	if (keys[SDL_SCANCODE_S]) {
+	if (keys[SDL_SCANCODE_S] && this->George.position.y - this->George.sprite.height/2 > -1.777f) {
 		this->George.velocity.y = -1.0f;
 		if (!keys[SDL_SCANCODE_G]) {
 			this->George.faceDirection = DOWN;
@@ -652,10 +735,12 @@ void Update() {
 }
 
 void MainMenuState::Render() {
+	setBackgroundTexture(this->backgroundTexture);
+
 	glm::mat4 modelMatrix = glm::mat4(1.0f);
-	modelMatrix = glm::translate(modelMatrix, glm::vec3(-0.625f, 0.25f, 0.0f));
+	modelMatrix = glm::translate(modelMatrix, glm::vec3(-0.85f, 0.25f, 0.0f));
 	texturedProgram.SetModelMatrix(modelMatrix);
-	this->DrawText(texturedProgram, asciiSpriteSheetTexture, "Final Project", 0.3f, -0.16f);
+	this->DrawText(texturedProgram, asciiSpriteSheetTexture, "Alien Invasion", 0.3f, -0.16f);
 
 	modelMatrix = glm::mat4(1.0f);
 	modelMatrix = glm::translate(modelMatrix, glm::vec3(-0.1f, -0.1f, 0.0f));
@@ -664,6 +749,7 @@ void MainMenuState::Render() {
 }
 
 void GameState::Render() {
+	setBackgroundTexture(this->backgroundTexture);
 	this->Betty.Render(texturedProgram);
 	this->George.Render(texturedProgram);
 	for (int i = 0; i < this->enemies.size(); i++) {
