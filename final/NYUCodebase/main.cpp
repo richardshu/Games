@@ -29,10 +29,7 @@ using namespace std;
 
 #define FIXED_TIMESTEP 0.0166666f	// 60 FPS (1.0f/60.0f) (update sixty times a second)
 #define MAX_TIMESTEPS 6
-#define TILE_SIZE 0.07f
-#define SPRITE_COUNT_X 16
-#define SPRITE_COUNT_Y 8
-#define FRICTION 2.0f
+#define MAX_BULLETS 100
 
 SDL_Window* displayWindow;
 SDL_GLContext context;
@@ -46,6 +43,7 @@ enum Direction { LEFT, RIGHT, UP, DOWN };
 enum EntityType { PLAYER, ENEMY, BULLET };
 GLuint asciiSpriteSheetTexture;
 GLuint bettySpriteSheet, georgeSpriteSheet;
+GLuint spacePackSpriteSheet;
 bool done = false;              // Game loop
 float lastFrameTicks = 0.0f;    // Set time to an initial value of 0
 float accumulator = 0.0f;
@@ -177,15 +175,16 @@ bool Entity::CollidesWith(Entity &otherEntity) {
 		position.x - sprite.width / 2 > otherEntity.position.x + otherEntity.sprite.width / 2 || 
 		position.y + sprite.width / 2 < otherEntity.position.y - otherEntity.sprite.width / 2 || 
 		position.y - sprite.width / 2 > otherEntity.position.y + otherEntity.sprite.width / 2) {
+		collidedBottom = false;
+		collidedLeft = false;
+		collidedRight = false;
+		collidedTop = false;
 		return false;
 	}
-	/*if (otherEntity.entityType == ENEMY) {
-		otherEntity.position = glm::vec3(100.0f, 100.0f, 0.0f);
-	}
-	else {
+	if (otherEntity.entityType == PLAYER) {
 		ResolveCollisionX(otherEntity);
 		ResolveCollisionY(otherEntity);
-	}*/
+	}
 	return true;
 }
 
@@ -194,16 +193,16 @@ void Entity::ResolveCollisionX(Entity& otherEntity) {
 
 	// A right collision occurred
 	if (position.x < otherEntity.position.x) {
-		position.x -= penetration - 0.00001f;
+		/*position.x -= penetration - 0.00001f;*/
 		collidedRight = true;
 	}
 
 	// A left collision occurred
 	else {
-		position.x += penetration + 0.00001f;
+		/*position.x += penetration + 0.00001f;*/
 		collidedLeft = true;
 	}
-	velocity.x = 0.0f; // Reset
+	//velocity.x = 0.0f; // Reset
 }
 
 void Entity::ResolveCollisionY(Entity& otherEntity) {
@@ -211,16 +210,16 @@ void Entity::ResolveCollisionY(Entity& otherEntity) {
 
 	// A top collision occurred
 	if (position.y < otherEntity.position.y) {
-		position.y -= penetration + 0.00001f;
+		/*position.y -= penetration + 0.00001f;*/
 		collidedBottom = true;
 	}
 
 	// A bottom collision occurred
 	else {
-		position.y += penetration + 0.00001f;
+		/*position.y += penetration + 0.00001f;*/
 		collidedTop = true;
 	}
-	velocity.y = 0.0f; // Resetz
+	//velocity.y = 0.0f; // Resetz
 }
 
 struct MainMenuState {
@@ -232,9 +231,10 @@ struct MainMenuState {
 };
 
 struct GameState {
-	Entity player1;
-	Entity player2;
-	vector<Entity> bullets;
+	Entity Betty;
+	Entity George;
+	vector<Entity> BulletsBetty;
+	vector<Entity> BulletsGeorge;
 	vector<Entity> enemies;
 
 	vector<SheetSprite> PlayerOneLeft;
@@ -246,6 +246,9 @@ struct GameState {
 	vector<SheetSprite> PlayerTwoRight;
 	vector<SheetSprite> PlayerTwoUp;
 	vector<SheetSprite> PlayerTwoDown;
+
+	SheetSprite bulletBetty;
+	SheetSprite bulletGeorge;
 
 	void LoadSprites();
 	void Setup();
@@ -303,9 +306,9 @@ void GameState::LoadSprites() {
 	for (int i = 0; i < 16; i++) {
 		int row = i / 4;
 		int col = i % 4;
-		float u = row * 48.0f / 192.0f;
-		float v = col * 48.0f / 192.0f;
-		SheetSprite temp = SheetSprite(bettySpriteSheet, u, v, 48.0f / 192.0f, 48.0f / 192.0f, 1.0f);
+		float u = (row * 48.0f + 5.0f) / 192.0f;
+		float v = (col * 48.0f + 5.0f) / 192.0f;
+		SheetSprite temp = SheetSprite(bettySpriteSheet, u, v, 38.0f / 192.0f, 38.0f / 192.0f, 1.0f);
 		switch (row) {
 		case 0:
 			this->PlayerOneDown.push_back(temp);
@@ -325,9 +328,9 @@ void GameState::LoadSprites() {
 	for (int i = 0; i < 16; i++) {
 		int row = i / 4;
 		int col = i % 4;
-		float u = row * 48.0f / 192.0f;
-		float v = col * 48.0f / 192.0f;
-		SheetSprite temp = SheetSprite(georgeSpriteSheet, u, v, 48.0f / 192.0f, 48.0f / 192.0f, 1.0f);
+		float u = (row * 48.0f + 5.0f) / 192.0f;
+		float v = (col * 48.0f + 5.0f) / 192.0f;
+		SheetSprite temp = SheetSprite(georgeSpriteSheet, u, v, 38.0f / 192.0f, 38.0f / 192.0f, 1.0f);
 		switch (row) {
 		case 0:
 			this->PlayerTwoDown.push_back(temp);
@@ -343,6 +346,12 @@ void GameState::LoadSprites() {
 			break;
 		}
 	}
+
+	// Load Player Bullets
+	GLuint bulletBettyTexture = LoadTexture("assets/BulletBetty.png");
+	bulletBetty = SheetSprite(bulletBettyTexture, 0.0f / 24.0f, 0.0f / 24.0f, 24.0f / 24.0f, 24.0f / 24.0f, 1.0f);
+	GLuint bulletGeorgeTexture = LoadTexture("assets/BulletGeorge.png");
+	bulletGeorge = SheetSprite(bulletGeorgeTexture, 0.0f / 24.0f, 0.0f / 24.0f, 24.0f / 24.0f, 24.0f / 24.0f, 1.0f);
 }
 
 void MainMenuState::Setup() {
@@ -352,21 +361,41 @@ void MainMenuState::Setup() {
 void GameState::Setup() {
 	this->LoadSprites();
 
-	this->player1.sprite = this->PlayerOneDown.at(0);
-	this->player1.faceDirection = DOWN;
-	this->player1.moveDirection = DOWN;
-	this->player1.entityType = PLAYER;
-	this->player1.position = glm::vec3(-0.2f, 0.0f, 0.0f);
-	this->player1.size = glm::vec3(0.3f, 0.3f, 1.0f);
-	this->player1.velocity = glm::vec3(0.0f, 0.0f, 0.0f);
+	this->Betty.sprite = this->PlayerOneDown.at(0);
+	this->Betty.faceDirection = DOWN;
+	this->Betty.moveDirection = DOWN;
+	this->Betty.entityType = PLAYER;
+	this->Betty.position = glm::vec3(-0.2f, 0.0f, 0.0f);
+	this->Betty.size = glm::vec3(0.25f, 0.25f, 1.0f);
+	this->Betty.velocity = glm::vec3(0.0f, 0.0f, 0.0f);
 
-	this->player2.sprite = this->PlayerTwoDown.at(0);
-	this->player2.faceDirection = DOWN;
-	this->player2.moveDirection = DOWN;
-	this->player2.entityType = PLAYER;
-	this->player2.position = glm::vec3(0.2f, 0.0f, 0.0f);
-	this->player2.size = glm::vec3(0.3f, 0.3f, 1.0f);
-	this->player2.velocity = glm::vec3(0.0f, 0.0f, 0.0f);
+	this->George.sprite = this->PlayerTwoDown.at(0);
+	this->George.faceDirection = DOWN;
+	this->George.moveDirection = DOWN;
+	this->George.entityType = PLAYER;
+	this->George.position = glm::vec3(0.2f, 0.0f, 0.0f);
+	this->George.size = glm::vec3(0.25f, 0.25f, 1.0f);
+	this->George.velocity = glm::vec3(0.0f, 0.0f, 0.0f);
+
+	for (int i = 0; i < MAX_BULLETS; i++) {
+		Entity bullet;
+		bullet.sprite = this->bulletBetty;
+		bullet.entityType = BULLET;
+		bullet.position = glm::vec3(-1000.0f, 0.0f, 0.0f);
+		bullet.size = glm::vec3(0.05f, 0.05f, 1.0f);
+		bullet.velocity = glm::vec3(0.0f, 0.0f, 0.0f);
+		this->BulletsBetty.push_back(bullet);
+	}
+
+	for (int i = 0; i < MAX_BULLETS; i++) {
+		Entity bullet;
+		bullet.sprite = this->bulletGeorge;
+		bullet.entityType = BULLET;
+		bullet.position = glm::vec3(1000.0f, 0.0f, 0.0f);
+		bullet.size = glm::vec3(0.05f, 0.05f, 1.0f);
+		bullet.velocity = glm::vec3(0.0f, 0.0f, 0.0f);
+		this->BulletsGeorge.push_back(bullet);
+	}
 }
 
 void Setup() {
@@ -389,6 +418,7 @@ void Setup() {
 	asciiSpriteSheetTexture = LoadTexture("assets/ascii_spritesheet.png");
 	bettySpriteSheet = LoadTexture("assets/betty_0.png");
 	georgeSpriteSheet = LoadTexture("assets/george_0.png");
+	spacePackSpriteSheet = LoadTexture("assets/SpacePack/Spritesheet/uipackSpace_sheet.png");
 
 	// "Blend" textures so their background doesn't show
 	glEnable(GL_BLEND);
@@ -441,116 +471,116 @@ void GameState::ProcessEvents() {
 	}
 
 	// Player One movement
-	this->player1.velocity.x = 0.0f;
-	this->player1.velocity.y = 0.0f;
+	this->Betty.velocity.x = 0.0f;
+	this->Betty.velocity.y = 0.0f;
 	if (keys[SDL_SCANCODE_LEFT]) {
-		this->player1.velocity.x = -1.0f;
+		this->Betty.velocity.x = -1.0f;
 		if (!keys[SDL_SCANCODE_M]) {
-			this->player1.faceDirection = LEFT;
+			this->Betty.faceDirection = LEFT;
 		}
 	}
 	if (keys[SDL_SCANCODE_RIGHT]) {
-		this->player1.velocity.x = 1.0f;
+		this->Betty.velocity.x = 1.0f;
 		if (!keys[SDL_SCANCODE_M]) {
-			this->player1.faceDirection = RIGHT;
+			this->Betty.faceDirection = RIGHT;
 		}
 	}
 	if (keys[SDL_SCANCODE_UP]) {
-		this->player1.velocity.y = 1.0f;
+		this->Betty.velocity.y = 1.0f;
 		if (!keys[SDL_SCANCODE_M]) {
-			this->player1.faceDirection = UP;
+			this->Betty.faceDirection = UP;
 		}
 	}
 	if (keys[SDL_SCANCODE_DOWN]) {
-		this->player1.velocity.y = -1.0f;
+		this->Betty.velocity.y = -1.0f;
 		if (!keys[SDL_SCANCODE_M]) {
-			this->player1.faceDirection = DOWN;
+			this->Betty.faceDirection = DOWN;
 		}
 	}
 	if (!keys[SDL_SCANCODE_LEFT] &&
 		!keys[SDL_SCANCODE_RIGHT] &&
 		!keys[SDL_SCANCODE_UP] &&
 		!keys[SDL_SCANCODE_DOWN]) {
-		this->player1.moveCounter = 0.0f;
+		this->Betty.moveCounter = 0.0f;
 	} else {
-		if (this->player1.moveDirection == this->player1.faceDirection || keys[SDL_SCANCODE_M]) {
-			this->player1.moveCounter += 0.005f;
+		if (this->Betty.moveDirection == this->Betty.faceDirection || keys[SDL_SCANCODE_M]) {
+			this->Betty.moveCounter += 0.005f;
 		} else {
-			this->player1.moveCounter = 0.0f;
-			this->player1.moveDirection = this->player1.faceDirection;
+			this->Betty.moveCounter = 0.0f;
+			this->Betty.moveDirection = this->Betty.faceDirection;
 		}
 	}
 
-	switch (this->player1.faceDirection) {
+	switch (this->Betty.faceDirection) {
 	case UP:
-		this->player1.sprite = this->PlayerOneUp.at((int) this->player1.moveCounter % 4);
+		this->Betty.sprite = this->PlayerOneUp.at((int) this->Betty.moveCounter % 4);
 		break;
 	case DOWN:
-		this->player1.sprite = this->PlayerOneDown.at((int) this->player1.moveCounter % 4);
+		this->Betty.sprite = this->PlayerOneDown.at((int) this->Betty.moveCounter % 4);
 		break;
 	case LEFT:
-		this->player1.sprite = this->PlayerOneLeft.at((int) this->player1.moveCounter % 4);
+		this->Betty.sprite = this->PlayerOneLeft.at((int) this->Betty.moveCounter % 4);
 		break;
 	case RIGHT:
-		this->player1.sprite = this->PlayerOneRight.at((int) this->player1.moveCounter % 4);
+		this->Betty.sprite = this->PlayerOneRight.at((int) this->Betty.moveCounter % 4);
 		break;
 	}
 
 	// Player Two movement
-	this->player2.velocity.x = 0.0f;
-	this->player2.velocity.y = 0.0f;
+	this->George.velocity.x = 0.0f;
+	this->George.velocity.y = 0.0f;
 	if (keys[SDL_SCANCODE_A]) {
-		this->player2.velocity.x = -1.0f;
+		this->George.velocity.x = -1.0f;
 		if (!keys[SDL_SCANCODE_G]) {
-			this->player2.faceDirection = LEFT;
+			this->George.faceDirection = LEFT;
 		}
 	}
 	if (keys[SDL_SCANCODE_D]) {
-		this->player2.velocity.x = 1.0f;
+		this->George.velocity.x = 1.0f;
 		if (!keys[SDL_SCANCODE_G]) {
-			this->player2.faceDirection = RIGHT;
+			this->George.faceDirection = RIGHT;
 		}
 	}
 	if (keys[SDL_SCANCODE_W]) {
-		this->player2.velocity.y = 1.0f;
+		this->George.velocity.y = 1.0f;
 		if (!keys[SDL_SCANCODE_G]) {
-			this->player2.faceDirection = UP;
+			this->George.faceDirection = UP;
 		}
 	}
 	if (keys[SDL_SCANCODE_S]) {
-		this->player2.velocity.y = -1.0f;
+		this->George.velocity.y = -1.0f;
 		if (!keys[SDL_SCANCODE_G]) {
-			this->player2.faceDirection = DOWN;
+			this->George.faceDirection = DOWN;
 		}
 	}
 	if (!keys[SDL_SCANCODE_A] &&
 		!keys[SDL_SCANCODE_D] &&
 		!keys[SDL_SCANCODE_W] &&
 		!keys[SDL_SCANCODE_S]) {
-		this->player2.moveCounter = 0.0f;
+		this->George.moveCounter = 0.0f;
 	}
 	else {
-		if (this->player2.moveDirection == this->player2.faceDirection || keys[SDL_SCANCODE_G]) {
-			this->player2.moveCounter += 0.005f;
+		if (this->George.moveDirection == this->George.faceDirection || keys[SDL_SCANCODE_G]) {
+			this->George.moveCounter += 0.005f;
 		}
 		else {
-			this->player2.moveCounter = 0.0f;
-			this->player2.moveDirection = this->player2.faceDirection;
+			this->George.moveCounter = 0.0f;
+			this->George.moveDirection = this->George.faceDirection;
 		}
 	}
 
-	switch (this->player2.faceDirection) {
+	switch (this->George.faceDirection) {
 	case UP:
-		this->player2.sprite = this->PlayerTwoUp.at((int) this->player2.moveCounter % 4);
+		this->George.sprite = this->PlayerTwoUp.at((int) this->George.moveCounter % 4);
 		break;
 	case DOWN:
-		this->player2.sprite = this->PlayerTwoDown.at((int) this->player2.moveCounter % 4);
+		this->George.sprite = this->PlayerTwoDown.at((int) this->George.moveCounter % 4);
 		break;
 	case LEFT:
-		this->player2.sprite = this->PlayerTwoLeft.at((int) this->player2.moveCounter % 4);
+		this->George.sprite = this->PlayerTwoLeft.at((int) this->George.moveCounter % 4);
 		break;
 	case RIGHT:
-		this->player2.sprite = this->PlayerTwoRight.at((int) this->player2.moveCounter % 4);
+		this->George.sprite = this->PlayerTwoRight.at((int) this->George.moveCounter % 4);
 		break;
 	}
 }
@@ -567,14 +597,45 @@ void ProcessEvents() {
 }
 
 void GameState::Update(float elapsed) {
-	this->player1.Update(elapsed);
-	this->player2.Update(elapsed);
+	if (Betty.CollidesWith(George)) {
+		if (keys[SDL_SCANCODE_RIGHT] && this->Betty.collidedRight) {
+			this->Betty.velocity.x = 0.0f;
+		}
+		if (keys[SDL_SCANCODE_LEFT] && this->Betty.collidedLeft) {
+			this->Betty.velocity.x = 0.0f;
+		}
+		if (keys[SDL_SCANCODE_UP] && this->Betty.collidedBottom) {
+			this->Betty.velocity.y = 0.0f;
+		}
+		if (keys[SDL_SCANCODE_DOWN] && this->Betty.collidedTop) {
+			this->Betty.velocity.y = 0.0f;
+		}
+	}
+	if (George.CollidesWith(Betty)) {
+		if (keys[SDL_SCANCODE_D] && this->George.collidedRight) {
+			this->George.velocity.x = 0.0f;
+		}
+		if (keys[SDL_SCANCODE_A] && this->George.collidedLeft) {
+			this->George.velocity.x = 0.0f;
+		}
+		if (keys[SDL_SCANCODE_W] && this->George.collidedBottom) {
+			this->George.velocity.y = 0.0f;
+		}
+		if (keys[SDL_SCANCODE_S] && this->George.collidedTop) {
+			this->George.velocity.y = 0.0f;
+		}
+	}
+	this->Betty.Update(elapsed);
+	this->George.Update(elapsed);
 
-	for (size_t i = 0; i < this->enemies.size(); i++) {
+	for (int i = 0; i < this->enemies.size(); i++) {
 		this->enemies[i].Update(elapsed);
 	}
-	for (size_t i = 0; i < this->bullets.size(); i++) {
-		this->bullets[i].Update(elapsed);
+	for (int i = 0; i < this->BulletsBetty.size(); i++) {
+		this->BulletsBetty.at(i).Update(elapsed);
+	}
+	for (int i = 0; i < this->BulletsGeorge.size(); i++) {
+		this->BulletsGeorge.at(i).Update(elapsed);
 	}
 }
 
@@ -603,13 +664,16 @@ void MainMenuState::Render() {
 }
 
 void GameState::Render() {
-	this->player1.Render(texturedProgram);
-	this->player2.Render(texturedProgram);
-	for (size_t i = 0; i < this->enemies.size(); i++) {
+	this->Betty.Render(texturedProgram);
+	this->George.Render(texturedProgram);
+	for (int i = 0; i < this->enemies.size(); i++) {
 		this->enemies[i].Render(texturedProgram);
 	}
-	for (size_t i = 0; i < this->bullets.size(); i++) {
-		this->bullets[i].Render(texturedProgram);
+	for (int i = 0; i < this->BulletsBetty.size(); i++) {
+		this->BulletsBetty.at(i).Render(texturedProgram);
+	}
+	for (int i = 0; i < this->BulletsGeorge.size(); i++) {
+		this->BulletsGeorge.at(i).Render(texturedProgram);
 	}
 }
 
