@@ -1,3 +1,9 @@
 ﻿  main.cpp
-c:\users\richa\documents\projects\cs3113\final\nyucodebase\main.cpp(427): warning C4018: '<': signed/unsigned mismatch
+c:\users\richa\documents\projects\cs3113\final\nyucodebase\main.cpp(471): warning C4018: '<': signed/unsigned mismatch
+c:\users\richa\documents\projects\cs3113\final\nyucodebase\main.cpp(812): warning C4018: '<': signed/unsigned mismatch
+c:\users\richa\documents\projects\cs3113\final\nyucodebase\main.cpp(815): warning C4018: '<': signed/unsigned mismatch
+c:\users\richa\documents\projects\cs3113\final\nyucodebase\main.cpp(818): warning C4018: '<': signed/unsigned mismatch
+c:\users\richa\documents\projects\cs3113\final\nyucodebase\main.cpp(853): warning C4018: '<': signed/unsigned mismatch
+c:\users\richa\documents\projects\cs3113\final\nyucodebase\main.cpp(856): warning C4018: '<': signed/unsigned mismatch
+c:\users\richa\documents\projects\cs3113\final\nyucodebase\main.cpp(859): warning C4018: '<': signed/unsigned mismatch
   NYUCodebase.vcxproj -> C:\Users\richa\Documents\Projects\cs3113\final\Debug\NYUCodebase.exe
