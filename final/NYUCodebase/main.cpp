@@ -222,6 +222,8 @@ void Entity::ResolveCollisionY(Entity& otherEntity) {
 }
 
 struct MainMenuState {
+
+	GLuint backgroundTexture;
 	void DrawText(ShaderProgram &program, int fontTexture, std::string text, float size, float spacing);
 
 	void Setup();
@@ -285,7 +287,34 @@ void MainMenuState::DrawText(ShaderProgram &program, int fontTexture, std::strin
 	glDisableVertexAttribArray(program.texCoordAttribute);
 }
 
+void setBackgroundTexture(GLuint backgroundTexture) {
+	glUseProgram(texturedProgram.programID);
+	glBindTexture(GL_TEXTURE_2D, backgroundTexture);
+
+	glm::mat4 modelMatrix = glm::mat4(1.0f);
+	modelMatrix = glm::scale(modelMatrix, glm::vec3(3.75f, 3.75f, 1.0f));
+	texturedProgram.SetModelMatrix(modelMatrix);
+
+	float vertices[] = { -0.5f, -0.5f, 0.5f,  0.5f,	-0.5f,  0.5f, 0.5f,  0.5f, -0.5f, -0.5f, 0.5f, -0.5f };
+	glVertexAttribPointer(texturedProgram.positionAttribute, 2, GL_FLOAT, false, 0, vertices);
+	glEnableVertexAttribArray(texturedProgram.positionAttribute);
+
+	float texCoords[] = { 0.0, 1.0, 1.0, 0.0, 0.0, 0.0,	1.0, 0.0, 0.0, 1.0,	1.0, 1.0 };
+	glVertexAttribPointer(texturedProgram.texCoordAttribute, 2, GL_FLOAT, false, 0, texCoords);
+	glEnableVertexAttribArray(texturedProgram.texCoordAttribute);
+
+	glDrawArrays(GL_TRIANGLES, 0, 6);
+	glDisableVertexAttribArray(texturedProgram.positionAttribute);
+	glDisableVertexAttribArray(texturedProgram.texCoordAttribute);
+}
+
 void MainMenuState::Setup() {
+	backgroundTexture = LoadTexture("assets/main_menu_background.jpg");
+	setBackgroundTexture(backgroundTexture);
+
+	// Play buton
+
+	// Quit button
 
 }
 
@@ -306,11 +335,13 @@ void GameState::Setup() {
 	this->player2.position = glm::vec3(0.2f, 0.0f, 0.0f);
 	this->player2.size = glm::vec3(1.0f, 1.0f, 1.0f);
 	this->player2.velocity = glm::vec3(0.0f, 0.0f, 0.0f);
+
+	SheetSprite enemySprite;
 }
 
 void Setup() {
 	SDL_Init(SDL_INIT_VIDEO);
-	displayWindow = SDL_CreateWindow("Final Project", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 640, 640, SDL_WINDOW_OPENGL);
+	displayWindow = SDL_CreateWindow("Alien Invasion", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 640, 640, SDL_WINDOW_OPENGL);
 	SDL_GLContext context = SDL_GL_CreateContext(displayWindow);
 	SDL_GL_MakeCurrent(displayWindow, context);
 
@@ -340,7 +371,7 @@ void Setup() {
 	glClearColor(0.6f, 0.9f, 1.0f, 1.0f);
 
 	projectionMatrix = glm::mat4(1.0f);
-	projectionMatrix = glm::ortho(-1.777f, 1.777f, -1.0f, 1.0f, -1.0f, 1.0f);
+	projectionMatrix = glm::ortho(-1.777f, 1.777f, -1.777f, 1.777f, -1.0f, 1.0f);
 	viewMatrix = glm::mat4(1.0f);
 
 	program.SetProjectionMatrix(projectionMatrix);
@@ -447,10 +478,12 @@ void Update() {
 }
 
 void MainMenuState::Render() {
+	setBackgroundTexture(this->backgroundTexture);
+
 	glm::mat4 modelMatrix = glm::mat4(1.0f);
-	modelMatrix = glm::translate(modelMatrix, glm::vec3(-0.625f, 0.25f, 0.0f));
+	modelMatrix = glm::translate(modelMatrix, glm::vec3(-0.85f, 0.25f, 0.0f));
 	texturedProgram.SetModelMatrix(modelMatrix);
-	this->DrawText(texturedProgram, asciiSpriteSheetTexture, "Final Project", 0.3f, -0.16f);
+	this->DrawText(texturedProgram, asciiSpriteSheetTexture, "Alien Invasion", 0.3f, -0.16f);
 
 	modelMatrix = glm::mat4(1.0f);
 	modelMatrix = glm::translate(modelMatrix, glm::vec3(-0.1f, -0.1f, 0.0f));
