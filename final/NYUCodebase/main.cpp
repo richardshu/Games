@@ -45,7 +45,7 @@ enum GameMode { MAIN_MENU, GAME_LEVEL, GAME_OVER };
 enum Direction { LEFT, RIGHT, UP, DOWN };
 enum EntityType { PLAYER, ENEMY, BULLET };
 GLuint asciiSpriteSheetTexture;
-GLuint textureSheet;
+GLuint bettySpriteSheet, georgeSpriteSheet;
 bool done = false;              // Game loop
 float lastFrameTicks = 0.0f;    // Set time to an initial value of 0
 float accumulator = 0.0f;
@@ -135,7 +135,9 @@ public:
 	bool CollidesWith(Entity &otherEntity);
 
 	SheetSprite sprite;
-	Direction direction;
+	Direction faceDirection;
+	Direction moveDirection;
+	float moveCounter;
 	EntityType entityType;
 
 	glm::vec3 position;
@@ -235,6 +237,17 @@ struct GameState {
 	vector<Entity> bullets;
 	vector<Entity> enemies;
 
+	vector<SheetSprite> PlayerOneLeft;
+	vector<SheetSprite> PlayerOneRight;
+	vector<SheetSprite> PlayerOneUp;
+	vector<SheetSprite> PlayerOneDown;
+
+	vector<SheetSprite> PlayerTwoLeft;
+	vector<SheetSprite> PlayerTwoRight;
+	vector<SheetSprite> PlayerTwoUp;
+	vector<SheetSprite> PlayerTwoDown;
+
+	void LoadSprites();
 	void Setup();
 	void ProcessEvents();
 	void Update(float elapsed);
@@ -285,26 +298,74 @@ void MainMenuState::DrawText(ShaderProgram &program, int fontTexture, std::strin
 	glDisableVertexAttribArray(program.texCoordAttribute);
 }
 
+void GameState::LoadSprites() {
+	// Load Player One sprites
+	for (int i = 0; i < 16; i++) {
+		int row = i / 4;
+		int col = i % 4;
+		float u = row * 48.0f / 192.0f;
+		float v = col * 48.0f / 192.0f;
+		SheetSprite temp = SheetSprite(bettySpriteSheet, u, v, 48.0f / 192.0f, 48.0f / 192.0f, 1.0f);
+		switch (row) {
+		case 0:
+			this->PlayerOneDown.push_back(temp);
+			break;
+		case 1:
+			this->PlayerOneLeft.push_back(temp);
+			break;
+		case 2:
+			this->PlayerOneUp.push_back(temp);
+			break;
+		case 3:
+			this->PlayerOneRight.push_back(temp);
+			break;
+		}
+	}
+	// Load Player Two sprites
+	for (int i = 0; i < 16; i++) {
+		int row = i / 4;
+		int col = i % 4;
+		float u = row * 48.0f / 192.0f;
+		float v = col * 48.0f / 192.0f;
+		SheetSprite temp = SheetSprite(georgeSpriteSheet, u, v, 48.0f / 192.0f, 48.0f / 192.0f, 1.0f);
+		switch (row) {
+		case 0:
+			this->PlayerTwoDown.push_back(temp);
+			break;
+		case 1:
+			this->PlayerTwoLeft.push_back(temp);
+			break;
+		case 2:
+			this->PlayerTwoUp.push_back(temp);
+			break;
+		case 3:
+			this->PlayerTwoRight.push_back(temp);
+			break;
+		}
+	}
+}
+
 void MainMenuState::Setup() {
 
 }
 
 void GameState::Setup() {
-	SheetSprite playerBlueSprite = SheetSprite(textureSheet, 211.0f / 1024.0f, 941.0f / 1024.0f, 99.0f / 1024.0f, 75.0f / 1024.0f, 0.2f);
-	SheetSprite playerGreenSprite = SheetSprite(textureSheet, 237.0f / 1024.0f, 377.0f / 1024.0f, 99.0f / 1024.0f, 75.0f / 1024.0f, 0.2f);
+	this->LoadSprites();
 
-	this->player1.sprite = playerBlueSprite;
-	this->player1.direction = DOWN;
+	this->player1.sprite = this->PlayerOneDown.at(0);
+	this->player1.faceDirection = DOWN;
+	this->player1.moveDirection = DOWN;
 	this->player1.entityType = PLAYER;
 	this->player1.position = glm::vec3(-0.2f, 0.0f, 0.0f);
-	this->player1.size = glm::vec3(1.0f, 1.0f, 1.0f);
+	this->player1.size = glm::vec3(0.3f, 0.3f, 1.0f);
 	this->player1.velocity = glm::vec3(0.0f, 0.0f, 0.0f);
 
-	this->player2.sprite = playerGreenSprite;
-	this->player2.direction = DOWN;
+	this->player2.sprite = this->PlayerTwoDown.at(0);
+	this->player2.faceDirection = DOWN;
+	this->player2.moveDirection = DOWN;
 	this->player2.entityType = PLAYER;
 	this->player2.position = glm::vec3(0.2f, 0.0f, 0.0f);
-	this->player2.size = glm::vec3(1.0f, 1.0f, 1.0f);
+	this->player2.size = glm::vec3(0.3f, 0.3f, 1.0f);
 	this->player2.velocity = glm::vec3(0.0f, 0.0f, 0.0f);
 }
 
@@ -326,7 +387,8 @@ void Setup() {
 
 	// Load sprite sheets
 	asciiSpriteSheetTexture = LoadTexture("assets/ascii_spritesheet.png");
-	textureSheet = LoadTexture("assets/SpaceShooter/Spritesheet/sheet.png");
+	bettySpriteSheet = LoadTexture("assets/betty_0.png");
+	georgeSpriteSheet = LoadTexture("assets/george_0.png");
 
 	// "Blend" textures so their background doesn't show
 	glEnable(GL_BLEND);
@@ -340,7 +402,7 @@ void Setup() {
 	glClearColor(0.6f, 0.9f, 1.0f, 1.0f);
 
 	projectionMatrix = glm::mat4(1.0f);
-	projectionMatrix = glm::ortho(-1.777f, 1.777f, -1.0f, 1.0f, -1.0f, 1.0f);
+	projectionMatrix = glm::ortho(-1.777f, 1.777f, -1.777f, 1.777f, -1.0f, 1.0f);
 	viewMatrix = glm::mat4(1.0f);
 
 	program.SetProjectionMatrix(projectionMatrix);
@@ -383,15 +445,55 @@ void GameState::ProcessEvents() {
 	this->player1.velocity.y = 0.0f;
 	if (keys[SDL_SCANCODE_LEFT]) {
 		this->player1.velocity.x = -1.0f;
+		if (!keys[SDL_SCANCODE_L]) {
+			this->player1.faceDirection = LEFT;
+		}
 	}
 	if (keys[SDL_SCANCODE_RIGHT]) {
 		this->player1.velocity.x = 1.0f;
+		if (!keys[SDL_SCANCODE_L]) {
+			this->player1.faceDirection = RIGHT;
+		}
 	}
 	if (keys[SDL_SCANCODE_UP]) {
 		this->player1.velocity.y = 1.0f;
+		if (!keys[SDL_SCANCODE_L]) {
+			this->player1.faceDirection = UP;
+		}
 	}
 	if (keys[SDL_SCANCODE_DOWN]) {
 		this->player1.velocity.y = -1.0f;
+		if (!keys[SDL_SCANCODE_L]) {
+			this->player1.faceDirection = DOWN;
+		}
+	}
+	if (!keys[SDL_SCANCODE_LEFT] &&
+		!keys[SDL_SCANCODE_RIGHT] &&
+		!keys[SDL_SCANCODE_UP] &&
+		!keys[SDL_SCANCODE_DOWN]) {
+		this->player1.moveCounter = 0.0f;
+	} else {
+		if (this->player1.moveDirection == this->player1.faceDirection || keys[SDL_SCANCODE_L]) {
+			this->player1.moveCounter += 0.005f;
+		} else {
+			this->player1.moveCounter = 0.0f;
+			this->player1.moveDirection = this->player1.faceDirection;
+		}
+	}
+
+	switch (this->player1.faceDirection) {
+	case UP:
+		this->player1.sprite = this->PlayerOneUp.at((int) this->player1.moveCounter % 4);
+		break;
+	case DOWN:
+		this->player1.sprite = this->PlayerOneDown.at((int) this->player1.moveCounter % 4);
+		break;
+	case LEFT:
+		this->player1.sprite = this->PlayerOneLeft.at((int) this->player1.moveCounter % 4);
+		break;
+	case RIGHT:
+		this->player1.sprite = this->PlayerOneRight.at((int) this->player1.moveCounter % 4);
+		break;
 	}
 
 	// Player Two movement
@@ -399,15 +501,57 @@ void GameState::ProcessEvents() {
 	this->player2.velocity.y = 0.0f;
 	if (keys[SDL_SCANCODE_A]) {
 		this->player2.velocity.x = -1.0f;
+		if (!keys[SDL_SCANCODE_G]) {
+			this->player2.faceDirection = LEFT;
+		}
 	}
 	if (keys[SDL_SCANCODE_D]) {
 		this->player2.velocity.x = 1.0f;
+		if (!keys[SDL_SCANCODE_G]) {
+			this->player2.faceDirection = RIGHT;
+		}
 	}
 	if (keys[SDL_SCANCODE_W]) {
 		this->player2.velocity.y = 1.0f;
+		if (!keys[SDL_SCANCODE_G]) {
+			this->player2.faceDirection = UP;
+		}
 	}
 	if (keys[SDL_SCANCODE_S]) {
 		this->player2.velocity.y = -1.0f;
+		if (!keys[SDL_SCANCODE_G]) {
+			this->player2.faceDirection = DOWN;
+		}
+	}
+	if (!keys[SDL_SCANCODE_A] &&
+		!keys[SDL_SCANCODE_D] &&
+		!keys[SDL_SCANCODE_W] &&
+		!keys[SDL_SCANCODE_S]) {
+		this->player2.moveCounter = 0.0f;
+	}
+	else {
+		if (this->player2.moveDirection == this->player2.faceDirection || keys[SDL_SCANCODE_G]) {
+			this->player2.moveCounter += 0.005f;
+		}
+		else {
+			this->player2.moveCounter = 0.0f;
+			this->player2.moveDirection = this->player2.faceDirection;
+		}
+	}
+
+	switch (this->player2.faceDirection) {
+	case UP:
+		this->player2.sprite = this->PlayerTwoUp.at((int) this->player2.moveCounter % 4);
+		break;
+	case DOWN:
+		this->player2.sprite = this->PlayerTwoDown.at((int) this->player2.moveCounter % 4);
+		break;
+	case LEFT:
+		this->player2.sprite = this->PlayerTwoLeft.at((int) this->player2.moveCounter % 4);
+		break;
+	case RIGHT:
+		this->player2.sprite = this->PlayerTwoRight.at((int) this->player2.moveCounter % 4);
+		break;
 	}
 }
 
