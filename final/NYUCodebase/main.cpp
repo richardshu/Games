@@ -445,25 +445,25 @@ void GameState::ProcessEvents() {
 	this->player1.velocity.y = 0.0f;
 	if (keys[SDL_SCANCODE_LEFT]) {
 		this->player1.velocity.x = -1.0f;
-		if (!keys[SDL_SCANCODE_L]) {
+		if (!keys[SDL_SCANCODE_M]) {
 			this->player1.faceDirection = LEFT;
 		}
 	}
 	if (keys[SDL_SCANCODE_RIGHT]) {
 		this->player1.velocity.x = 1.0f;
-		if (!keys[SDL_SCANCODE_L]) {
+		if (!keys[SDL_SCANCODE_M]) {
 			this->player1.faceDirection = RIGHT;
 		}
 	}
 	if (keys[SDL_SCANCODE_UP]) {
 		this->player1.velocity.y = 1.0f;
-		if (!keys[SDL_SCANCODE_L]) {
+		if (!keys[SDL_SCANCODE_M]) {
 			this->player1.faceDirection = UP;
 		}
 	}
 	if (keys[SDL_SCANCODE_DOWN]) {
 		this->player1.velocity.y = -1.0f;
-		if (!keys[SDL_SCANCODE_L]) {
+		if (!keys[SDL_SCANCODE_M]) {
 			this->player1.faceDirection = DOWN;
 		}
 	}
@@ -473,7 +473,7 @@ void GameState::ProcessEvents() {
 		!keys[SDL_SCANCODE_DOWN]) {
 		this->player1.moveCounter = 0.0f;
 	} else {
-		if (this->player1.moveDirection == this->player1.faceDirection || keys[SDL_SCANCODE_L]) {
+		if (this->player1.moveDirection == this->player1.faceDirection || keys[SDL_SCANCODE_M]) {
 			this->player1.moveCounter += 0.005f;
 		} else {
 			this->player1.moveCounter = 0.0f;
