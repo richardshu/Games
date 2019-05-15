@@ -9,6 +9,7 @@
 #include "ShaderProgram.h"
 #include "glm/mat4x4.hpp"
 #include "glm/gtc/matrix_transform.hpp"
+#include <SDL_mixer.h>	// For background music
 
 // Load images in any format with STB_image
 #define STB_IMAGE_IMPLEMENTATION
@@ -334,6 +335,11 @@ void MainMenuState::Setup() {
 	backgroundTexture = LoadTexture("assets/main_menu_background.jpg");
 	setBackgroundTexture(backgroundTexture);
 
+	// Play background music
+	Mix_OpenAudio(44100, MIX_DEFAULT_FORMAT, 2, 4096);
+	Mix_Music* backgroundMusic = Mix_LoadMUS("assets/background_music.mp3");
+	Mix_PlayMusic(backgroundMusic, -1);
+
 	// Play button
 
 	// Quit button
@@ -417,7 +423,7 @@ void GameState::Setup() {
 	this->player2.velocity = glm::vec3(0.0f, 0.0f, 0.0f);
 
 	// Initialize enemy attributes
-	this->numEnemies = 10;
+	this->numEnemies = 15;
 	for (size_t i = 0; i < this->numEnemies; i++) {
 		Entity enemy;
 		enemy.entityType = ENEMY;
@@ -425,8 +431,8 @@ void GameState::Setup() {
 		enemy.velocity = glm::vec3(0.0f, -0.1f, 0.0f);
 
 		// Randomly pick the starting position of the enemy
-		float x = static_cast <float> (rand()) / (static_cast <float> (RAND_MAX / 2.0f));	// Get a random float between 0.0 and 2.0
-		enemy.position.x = -1.0f + x;
+		float x = static_cast <float> (rand()) / (static_cast <float> (RAND_MAX / 2.5f));	// Get a random float between 0.0 and 2.0
+		enemy.position.x = -1.25f + x;
 		enemy.position.z = 0.0f;
 		int topOrBottom = rand() % 2;
 		if (topOrBottom) {
@@ -528,7 +534,7 @@ void GameState::ProcessEvents() {
 	this->player1.velocity.x = 0.0f;
 	this->player1.velocity.y = 0.0f;
 	if (keys[SDL_SCANCODE_LEFT]) {
-		if (this->player1.position.x > -1.0f) { // Player must be in bounds
+		if (this->player1.position.x > -1.25f) { // Player must be in bounds
 			this->player1.velocity.x = -1.0f;
 			if (!keys[SDL_SCANCODE_M]) {
 				this->player1.faceDirection = LEFT;
@@ -536,7 +542,7 @@ void GameState::ProcessEvents() {
 		}
 	}
 	if (keys[SDL_SCANCODE_RIGHT]) {
-		if (this->player1.position.x < 1.0f) { // Player must be in bounds
+		if (this->player1.position.x < 1.25f) { // Player must be in bounds
 			this->player1.velocity.x = 1.0f;
 			if (!keys[SDL_SCANCODE_M]) {
 				this->player1.faceDirection = RIGHT;
@@ -592,7 +598,7 @@ void GameState::ProcessEvents() {
 	this->player2.velocity.x = 0.0f;
 	this->player2.velocity.y = 0.0f;
 	if (keys[SDL_SCANCODE_A]) {
-		if (this->player2.position.x > -1.0f) { // Player must be in bounds
+		if (this->player2.position.x > -1.25f) { // Player must be in bounds
 			this->player2.velocity.x = -1.0f;
 			if (!keys[SDL_SCANCODE_G]) {
 				this->player2.faceDirection = LEFT;
@@ -600,7 +606,7 @@ void GameState::ProcessEvents() {
 		}
 	}
 	if (keys[SDL_SCANCODE_D]) {
-		if (this->player2.position.x < 1.0f) { // Player must be in bounds
+		if (this->player2.position.x < 1.25f) { // Player must be in bounds
 			this->player2.velocity.x = 1.0f;
 			if (!keys[SDL_SCANCODE_G]) {
 				this->player2.faceDirection = RIGHT;
