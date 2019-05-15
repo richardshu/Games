@@ -1,1 +1,13 @@
-﻿  NYUCodebase.vcxproj -> D:\Jack Zheng\Desktop\NYU\Intro to Game Programming\Final\cs3113\final\Debug\NYUCodebase.exe
+﻿  main.cpp
+d:\jack zheng\desktop\nyu\intro to game programming\final\cs3113\final\nyucodebase\main.cpp(429): warning C4244: 'initializing': conversion from 'double' to 'float', possible loss of data
+d:\jack zheng\desktop\nyu\intro to game programming\final\cs3113\final\nyucodebase\main.cpp(812): warning C4018: '<': signed/unsigned mismatch
+d:\jack zheng\desktop\nyu\intro to game programming\final\cs3113\final\nyucodebase\main.cpp(814): warning C4018: '<': signed/unsigned mismatch
+d:\jack zheng\desktop\nyu\intro to game programming\final\cs3113\final\nyucodebase\main.cpp(830): warning C4018: '<': signed/unsigned mismatch
+d:\jack zheng\desktop\nyu\intro to game programming\final\cs3113\final\nyucodebase\main.cpp(832): warning C4018: '<': signed/unsigned mismatch
+d:\jack zheng\desktop\nyu\intro to game programming\final\cs3113\final\nyucodebase\main.cpp(848): warning C4018: '<': signed/unsigned mismatch
+d:\jack zheng\desktop\nyu\intro to game programming\final\cs3113\final\nyucodebase\main.cpp(863): warning C4018: '<': signed/unsigned mismatch
+d:\jack zheng\desktop\nyu\intro to game programming\final\cs3113\final\nyucodebase\main.cpp(909): warning C4018: '<': signed/unsigned mismatch
+d:\jack zheng\desktop\nyu\intro to game programming\final\cs3113\final\nyucodebase\main.cpp(912): warning C4018: '<': signed/unsigned mismatch
+d:\jack zheng\desktop\nyu\intro to game programming\final\cs3113\final\nyucodebase\main.cpp(915): warning C4018: '<': signed/unsigned mismatch
+d:\jack zheng\desktop\nyu\intro to game programming\final\cs3113\final\nyucodebase\main.cpp(918): warning C4018: '<': signed/unsigned mismatch
+  NYUCodebase.vcxproj -> D:\Jack Zheng\Desktop\NYU\Intro to Game Programming\Final\cs3113\final\Debug\NYUCodebase.exe
