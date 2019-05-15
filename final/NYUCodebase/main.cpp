@@ -45,7 +45,8 @@ enum GameMode { MAIN_MENU, GAME_LEVEL, GAME_OVER };
 enum Direction { LEFT, RIGHT, UP, DOWN };
 enum EntityType { PLAYER, ENEMY, BULLET };
 GLuint asciiSpriteSheetTexture;
-GLuint textureSheet;
+GLuint bettySpriteSheet, georgeSpriteSheet;
+GLuint enemySpaceshipSpriteSheet;
 bool done = false;              // Game loop
 float lastFrameTicks = 0.0f;    // Set time to an initial value of 0
 float accumulator = 0.0f;
@@ -135,7 +136,9 @@ public:
 	bool CollidesWith(Entity &otherEntity);
 
 	SheetSprite sprite;
-	Direction direction;
+	Direction faceDirection;
+	Direction moveDirection;
+	float moveCounter;
 	EntityType entityType;
 
 	glm::vec3 position;
@@ -222,7 +225,6 @@ void Entity::ResolveCollisionY(Entity& otherEntity) {
 }
 
 struct MainMenuState {
-
 	GLuint backgroundTexture;
 	void DrawText(ShaderProgram &program, int fontTexture, std::string text, float size, float spacing);
 
@@ -232,12 +234,32 @@ struct MainMenuState {
 };
 
 struct GameState {
+	GLuint backgroundTexture;
+
 	Entity player1;
 	Entity player2;
 	vector<Entity> bullets;
 	vector<Entity> enemies;
+	int numEnemies;
+
+	vector<SheetSprite> PlayerOneLeft;
+	vector<SheetSprite> PlayerOneRight;
+	vector<SheetSprite> PlayerOneUp;
+	vector<SheetSprite> PlayerOneDown;
+
+	vector<SheetSprite> PlayerTwoLeft;
+	vector<SheetSprite> PlayerTwoRight;
+	vector<SheetSprite> PlayerTwoUp;
+	vector<SheetSprite> PlayerTwoDown;
+
+	SheetSprite pinkEnemySpaceship;
+	SheetSprite blueEnemySpaceship;
+	SheetSprite greenEnemySpaceship;
+	SheetSprite yellowEnemySpaceship;
+	SheetSprite beigeEnemySpaceship;
 
 	void Setup();
+	void LoadSprites();
 	void ProcessEvents();
 	void Update(float elapsed);
 	void Render();
@@ -312,31 +334,122 @@ void MainMenuState::Setup() {
 	backgroundTexture = LoadTexture("assets/main_menu_background.jpg");
 	setBackgroundTexture(backgroundTexture);
 
-	// Play buton
+	// Play button
 
 	// Quit button
 
 }
 
-void GameState::Setup() {
-	SheetSprite playerBlueSprite = SheetSprite(textureSheet, 211.0f / 1024.0f, 941.0f / 1024.0f, 99.0f / 1024.0f, 75.0f / 1024.0f, 0.2f);
-	SheetSprite playerGreenSprite = SheetSprite(textureSheet, 237.0f / 1024.0f, 377.0f / 1024.0f, 99.0f / 1024.0f, 75.0f / 1024.0f, 0.2f);
+void GameState::LoadSprites() {
+	// Load Player One sprites
+	for (int i = 0; i < 16; i++) {
+		int row = i / 4;
+		int col = i % 4;
+		float u = row * 48.0f / 192.0f;
+		float v = col * 48.0f / 192.0f;
+		SheetSprite temp = SheetSprite(bettySpriteSheet, u, v, 48.0f / 192.0f, 48.0f / 192.0f, 1.0f);
+		switch (row) {
+		case 0:
+			this->PlayerOneDown.push_back(temp);
+			break;
+		case 1:
+			this->PlayerOneLeft.push_back(temp);
+			break;
+		case 2:
+			this->PlayerOneUp.push_back(temp);
+			break;
+		case 3:
+			this->PlayerOneRight.push_back(temp);
+			break;
+		}
+	}
+	// Load Player Two sprites
+	for (int i = 0; i < 16; i++) {
+		int row = i / 4;
+		int col = i % 4;
+		float u = row * 48.0f / 192.0f;
+		float v = col * 48.0f / 192.0f;
+		SheetSprite temp = SheetSprite(georgeSpriteSheet, u, v, 48.0f / 192.0f, 48.0f / 192.0f, 1.0f);
+		switch (row) {
+		case 0:
+			this->PlayerTwoDown.push_back(temp);
+			break;
+		case 1:
+			this->PlayerTwoLeft.push_back(temp);
+			break;
+		case 2:
+			this->PlayerTwoUp.push_back(temp);
+			break;
+		case 3:
+			this->PlayerTwoRight.push_back(temp);
+			break;
+		}
+	}
 
-	this->player1.sprite = playerBlueSprite;
-	this->player1.direction = DOWN;
+	// Load enemy spaceship sprites
+	pinkEnemySpaceship = SheetSprite(enemySpaceshipSpriteSheet, 0.0f / 512.0f, 294.0f / 512.0f, 124.0f / 512.0f, 127.0f / 512.0f, 1.0f);
+	blueEnemySpaceship = SheetSprite(enemySpaceshipSpriteSheet,248.0f / 512.0f, 0.0f / 512.0f, 124.0f / 512.0f, 145.0f / 512.0f, 1.0f);
+	greenEnemySpaceship = SheetSprite(enemySpaceshipSpriteSheet, 124.0f / 512.0f, 144.0f / 512.0f, 124.0f / 512.0f, 123.0f / 512.0f, 1.0f);
+	yellowEnemySpaceship = SheetSprite(enemySpaceshipSpriteSheet, 0.0f / 512.0f, 0.0f / 512.0f, 124.0f / 512.0f, 108.0f / 512.0f, 1.0f);
+	beigeEnemySpaceship = SheetSprite(enemySpaceshipSpriteSheet, 372.0f / 512.0f, 0.0f / 512.0f, 124.0f / 512.0f, 122.0f / 512.0f, 1.0f);
+}
+
+void GameState::Setup() {
+	backgroundTexture = LoadTexture("assets/game_background.png");
+	setBackgroundTexture(backgroundTexture);
+
+	this->LoadSprites();
+
+	this->player1.sprite = this->PlayerOneDown.at(0);
+	this->player1.faceDirection = DOWN;
+	this->player1.moveDirection = DOWN;
 	this->player1.entityType = PLAYER;
 	this->player1.position = glm::vec3(-0.2f, 0.0f, 0.0f);
-	this->player1.size = glm::vec3(1.0f, 1.0f, 1.0f);
+	this->player1.size = glm::vec3(0.3f, 0.3f, 1.0f);
 	this->player1.velocity = glm::vec3(0.0f, 0.0f, 0.0f);
 
-	this->player2.sprite = playerGreenSprite;
-	this->player2.direction = DOWN;
+	this->player2.sprite = this->PlayerTwoDown.at(0);
+	this->player2.faceDirection = DOWN;
+	this->player2.moveDirection = DOWN;
 	this->player2.entityType = PLAYER;
 	this->player2.position = glm::vec3(0.2f, 0.0f, 0.0f);
-	this->player2.size = glm::vec3(1.0f, 1.0f, 1.0f);
+	this->player2.size = glm::vec3(0.3f, 0.3f, 1.0f);
 	this->player2.velocity = glm::vec3(0.0f, 0.0f, 0.0f);
 
-	SheetSprite enemySprite;
+	// Initialize enemy attributes
+	this->numEnemies = 10;
+	for (size_t i = 0; i < this->numEnemies; i++) {
+		Entity enemy;
+		enemy.entityType = ENEMY;
+		enemy.size = glm::vec3(0.3f, 0.3f, 1.0f);
+		enemy.velocity = glm::vec3(0.0f, -0.1f, 0.0f);
+
+		// Randomly pick the starting position of the enemy
+		float x = static_cast <float> (rand()) / (static_cast <float> (RAND_MAX / 2.0f));	// Get a random float between 0.0 and 2.0
+		enemy.position.x = -1.0f + x;
+		enemy.position.z = 0.0f;
+		int topOrBottom = rand() % 2;
+		if (topOrBottom) {
+			enemy.position.y = 2.0f;	// Top
+			enemy.velocity.y = -0.1f;	// Go down
+		}
+		else {
+			enemy.position.y = -2.0f;	// Bottom
+			enemy.velocity.y = 0.1f;	// Go up
+		}
+
+		// Randomly pick the color of the enemy
+		int enemySpriteIndex = rand() % 5;
+		switch (enemySpriteIndex) {
+			case 0: enemy.sprite = this->pinkEnemySpaceship; break;
+			case 1: enemy.sprite = this->blueEnemySpaceship; break;
+			case 2: enemy.sprite = this->greenEnemySpaceship; break;
+			case 3: enemy.sprite = this->yellowEnemySpaceship; break;
+			case 4: enemy.sprite = this->beigeEnemySpaceship; break;
+		}
+
+		this->enemies.push_back(enemy);
+	}
 }
 
 void Setup() {
@@ -357,7 +470,9 @@ void Setup() {
 
 	// Load sprite sheets
 	asciiSpriteSheetTexture = LoadTexture("assets/ascii_spritesheet.png");
-	textureSheet = LoadTexture("assets/SpaceShooter/Spritesheet/sheet.png");
+	bettySpriteSheet = LoadTexture("assets/betty_0.png");
+	georgeSpriteSheet = LoadTexture("assets/george_0.png");
+	enemySpaceshipSpriteSheet = LoadTexture("assets/SpaceShips/enemy_spaceship_spritesheet.png");
 
 	// "Blend" textures so their background doesn't show
 	glEnable(GL_BLEND);
@@ -413,32 +528,130 @@ void GameState::ProcessEvents() {
 	this->player1.velocity.x = 0.0f;
 	this->player1.velocity.y = 0.0f;
 	if (keys[SDL_SCANCODE_LEFT]) {
-		this->player1.velocity.x = -1.0f;
+		if (this->player1.position.x > -1.0f) { // Player must be in bounds
+			this->player1.velocity.x = -1.0f;
+			if (!keys[SDL_SCANCODE_M]) {
+				this->player1.faceDirection = LEFT;
+			}
+		}
 	}
 	if (keys[SDL_SCANCODE_RIGHT]) {
-		this->player1.velocity.x = 1.0f;
+		if (this->player1.position.x < 1.0f) { // Player must be in bounds
+			this->player1.velocity.x = 1.0f;
+			if (!keys[SDL_SCANCODE_M]) {
+				this->player1.faceDirection = RIGHT;
+			}
+		}
 	}
 	if (keys[SDL_SCANCODE_UP]) {
-		this->player1.velocity.y = 1.0f;
+		if (this->player1.position.y + this->player1.sprite.height/2 < 1.777f) { // Player must be in bounds
+			this->player1.velocity.y = 1.0f;
+			if (!keys[SDL_SCANCODE_M]) {
+				this->player1.faceDirection = UP;
+			}
+		}
 	}
 	if (keys[SDL_SCANCODE_DOWN]) {
-		this->player1.velocity.y = -1.0f;
+		if (this->player1.position.y - this->player1.sprite.height/2 > -1.777f) { // Player must be in bounds
+			this->player1.velocity.y = -1.0f;
+			if (!keys[SDL_SCANCODE_M]) {
+				this->player1.faceDirection = DOWN;
+			}
+		}
+	}
+	if (!keys[SDL_SCANCODE_LEFT] &&
+		!keys[SDL_SCANCODE_RIGHT] &&
+		!keys[SDL_SCANCODE_UP] &&
+		!keys[SDL_SCANCODE_DOWN]) {
+		this->player1.moveCounter = 0.0f;
+	} else {
+		if (this->player1.moveDirection == this->player1.faceDirection || keys[SDL_SCANCODE_M]) {
+			this->player1.moveCounter += 0.005f;
+		} else {
+			this->player1.moveCounter = 0.0f;
+			this->player1.moveDirection = this->player1.faceDirection;
+		}
+	}
+
+	switch (this->player1.faceDirection) {
+	case UP:
+		this->player1.sprite = this->PlayerOneUp.at((int) this->player1.moveCounter % 4);
+		break;
+	case DOWN:
+		this->player1.sprite = this->PlayerOneDown.at((int) this->player1.moveCounter % 4);
+		break;
+	case LEFT:
+		this->player1.sprite = this->PlayerOneLeft.at((int) this->player1.moveCounter % 4);
+		break;
+	case RIGHT:
+		this->player1.sprite = this->PlayerOneRight.at((int) this->player1.moveCounter % 4);
+		break;
 	}
 
 	// Player Two movement
 	this->player2.velocity.x = 0.0f;
 	this->player2.velocity.y = 0.0f;
 	if (keys[SDL_SCANCODE_A]) {
-		this->player2.velocity.x = -1.0f;
+		if (this->player2.position.x > -1.0f) { // Player must be in bounds
+			this->player2.velocity.x = -1.0f;
+			if (!keys[SDL_SCANCODE_G]) {
+				this->player2.faceDirection = LEFT;
+			}
+		}
 	}
 	if (keys[SDL_SCANCODE_D]) {
-		this->player2.velocity.x = 1.0f;
+		if (this->player2.position.x < 1.0f) { // Player must be in bounds
+			this->player2.velocity.x = 1.0f;
+			if (!keys[SDL_SCANCODE_G]) {
+				this->player2.faceDirection = RIGHT;
+			}
+		}
 	}
 	if (keys[SDL_SCANCODE_W]) {
-		this->player2.velocity.y = 1.0f;
+		if (this->player2.position.y + this->player2.sprite.height/2 < 1.777f) { // Player must be in bounds
+			this->player2.velocity.y = 1.0f;
+			if (!keys[SDL_SCANCODE_G]) {
+				this->player2.faceDirection = UP;
+			}
+		}
 	}
 	if (keys[SDL_SCANCODE_S]) {
-		this->player2.velocity.y = -1.0f;
+		if (this->player2.position.y - this->player2.sprite.height/2 > -1.777f) { // Player must be in bounds
+			this->player2.velocity.y = -1.0f;
+			if (!keys[SDL_SCANCODE_G]) {
+				this->player2.faceDirection = DOWN;
+			}
+		}
+	}
+	if (!keys[SDL_SCANCODE_A] &&
+		!keys[SDL_SCANCODE_D] &&
+		!keys[SDL_SCANCODE_W] &&
+		!keys[SDL_SCANCODE_S]) {
+		this->player2.moveCounter = 0.0f;
+	}
+	else {
+		if (this->player2.moveDirection == this->player2.faceDirection || keys[SDL_SCANCODE_G]) {
+			this->player2.moveCounter += 0.005f;
+		}
+		else {
+			this->player2.moveCounter = 0.0f;
+			this->player2.moveDirection = this->player2.faceDirection;
+		}
+	}
+
+	switch (this->player2.faceDirection) {
+	case UP:
+		this->player2.sprite = this->PlayerTwoUp.at((int) this->player2.moveCounter % 4);
+		break;
+	case DOWN:
+		this->player2.sprite = this->PlayerTwoDown.at((int) this->player2.moveCounter % 4);
+		break;
+	case LEFT:
+		this->player2.sprite = this->PlayerTwoLeft.at((int) this->player2.moveCounter % 4);
+		break;
+	case RIGHT:
+		this->player2.sprite = this->PlayerTwoRight.at((int) this->player2.moveCounter % 4);
+		break;
 	}
 }
 
@@ -492,6 +705,8 @@ void MainMenuState::Render() {
 }
 
 void GameState::Render() {
+	setBackgroundTexture(this->backgroundTexture);
+
 	this->player1.Render(texturedProgram);
 	this->player2.Render(texturedProgram);
 	for (size_t i = 0; i < this->enemies.size(); i++) {
