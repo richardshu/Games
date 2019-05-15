@@ -247,6 +247,8 @@ struct MainMenuState {
 	Entity playButton;
 	Entity quitButton;
 
+	SheetSprite greenButton;
+
 	GLuint backgroundTexture;
 	void Setup();
 	void ProcessEvents();
@@ -382,13 +384,19 @@ void MainMenuState::Setup() {
 	setBackgroundTexture(backgroundTexture);
 
 	// Play background music
-	backgroundMusic = Mix_LoadMUS("assets/background_music.mp3");
 	Mix_PlayMusic(backgroundMusic, 1);
 
-	// Play button
+	greenButton = SheetSprite(greenButtonSpriteSheet, 0.0f / 512.0f, 0.0f / 256.0f, 190.0f / 512.0f, 49.0f / 256.0f, 1.0f);
 
-	// Quit button
+	playButton.sprite = greenButton;
+	playButton.entityType = BUTTON;
+	playButton.position = glm::vec3(0.0f, 0.25f, 0.0f);
+	playButton.size = glm::vec3(0.5f, 0.25f, 1.0f);	// 2:1 ratio for x:y to match the dimensions of the sprite sheet
 
+	quitButton.sprite = greenButton;
+	quitButton.entityType = BUTTON;
+	quitButton.position = glm::vec3(0.0f, -0.25f, 0.0f);
+	quitButton.size = glm::vec3(0.5f, 0.25f, 1.0f);
 }
 
 void GameState::LoadSprites() {
@@ -504,8 +512,6 @@ void GameState::CreateBoom(SheetSprite &sheet, float x, float y) {
 }
 
 void GameState::Setup() {
-	fireSound = Mix_LoadWAV("assets/shootBulletSound.wav");
-
 	this->backgroundTexture = LoadTexture("assets/game_background.png");
 	this->LoadSprites();
 
@@ -559,7 +565,10 @@ void GameState::Setup() {
 void GameOverState::Setup() {
 	Mix_PauseMusic();
 
-	greenButton = SheetSprite(greenButtonSpriteSheet, 0.0f / 512.0f, 0.0f / 256.0f, 190.0f / 512.0f, 49.0f / 256.0f, 1.0f);;
+	backgroundTexture = LoadTexture("assets/main_menu_background.jpg");
+	setBackgroundTexture(backgroundTexture);
+
+	greenButton = SheetSprite(greenButtonSpriteSheet, 0.0f / 512.0f, 0.0f / 256.0f, 190.0f / 512.0f, 49.0f / 256.0f, 1.0f);
 
 	playAgainButton.sprite = greenButton;
 	playAgainButton.entityType = BUTTON;
@@ -626,6 +635,8 @@ void Setup() {
 
 	keys = SDL_GetKeyboardState(NULL);
 	Mix_OpenAudio(44100, MIX_DEFAULT_FORMAT, 2, 4096);
+	backgroundMusic = Mix_LoadMUS("assets/background_music.mp3");
+	fireSound = Mix_LoadWAV("assets/shootBulletSound.wav");
 
 	mode = MAIN_MENU; // Render the menu when the user opens the game
 	mainMenuState.Setup();
@@ -653,8 +664,13 @@ void MainMenuState::ProcessEvents() {
 		float cursorX = (((float)event.button.x / 640.0f) * 3.554f) - 1.777f;
 		float cursorY = (((float)(640.0f - event.button.y) / 640.0f) * 3.554f) - 1.777f;
 
-		mode = GAME_LEVEL;
-		gameState.Setup();
+		if (clicked(playButton, cursorX, cursorY)) {
+			mode = GAME_LEVEL;
+			gameState.Setup();
+		}
+		else if (clicked(quitButton, cursorX, cursorY)) {
+			done = true;
+		}
 	}
 }
 
@@ -830,12 +846,11 @@ void GameOverState::ProcessEvents() {
 		float cursorY = (((float)(640.0f - event.button.y) / 640.0f) * 3.554f) - 1.777f;
 
 		if (clicked(playAgainButton, cursorX, cursorY)) {
-			Mix_RewindMusic();
+			Mix_PlayMusic(backgroundMusic, 1);
 			mode = GAME_LEVEL;
 			gameState.Setup();
 		}
 		else if (clicked(mainMenuButton, cursorX, cursorY)) {
-			Mix_RewindMusic();
 			mode = MAIN_MENU;
 			mainMenuState.Setup();
 		}
@@ -1002,14 +1017,22 @@ void MainMenuState::Render() {
 	setBackgroundTexture(this->backgroundTexture);
 
 	glm::mat4 modelMatrix = glm::mat4(1.0f);
-	modelMatrix = glm::translate(modelMatrix, glm::vec3(-0.85f, 0.25f, 0.0f));
+	modelMatrix = glm::translate(modelMatrix, glm::vec3(-0.85f, 0.75f, 0.0f));
 	texturedProgram.SetModelMatrix(modelMatrix);
 	DrawText(texturedProgram, asciiSpriteSheetTexture, "Alien Invasion", 0.3f, -0.16f);
 
+	playButton.Render(texturedProgram);
+	quitButton.Render(texturedProgram);
+
 	modelMatrix = glm::mat4(1.0f);
-	modelMatrix = glm::translate(modelMatrix, glm::vec3(-0.1f, -0.1f, 0.0f));
+	modelMatrix = glm::translate(modelMatrix, glm::vec3(-0.14f, playButton.position.y, 0.0f));
 	texturedProgram.SetModelMatrix(modelMatrix);
-	DrawText(texturedProgram, asciiSpriteSheetTexture, "Play", 0.125f, -0.075f);
+	DrawText(texturedProgram, asciiSpriteSheetTexture, "Play", 0.15f, -0.075f);
+
+	modelMatrix = glm::mat4(1.0f);
+	modelMatrix = glm::translate(modelMatrix, glm::vec3(-0.125f, quitButton.position.y, 0.0f));
+	texturedProgram.SetModelMatrix(modelMatrix);
+	DrawText(texturedProgram, asciiSpriteSheetTexture, "Quit", 0.15f, -0.07f);
 }
 
 void GameState::Render() {
@@ -1031,6 +1054,8 @@ void GameState::Render() {
 }
 
 void GameOverState::Render() {
+	setBackgroundTexture(this->backgroundTexture);
+
 	glm::mat4 modelMatrix = glm::mat4(1.0f);
 	modelMatrix = glm::translate(modelMatrix, glm::vec3(-0.71f, 1.0f, 0.0f));
 	texturedProgram.SetModelMatrix(modelMatrix);
@@ -1041,10 +1066,39 @@ void GameOverState::Render() {
 	} else {
 		DrawText(texturedProgram, asciiSpriteSheetTexture, "It's a tie!", 0.3f, -0.16f);
 	}
+	// Render Betty's score (top left corner)
+	modelMatrix = glm::mat4(1.0f);
+	modelMatrix = glm::translate(modelMatrix, glm::vec3(-1.7f, 1.6f, 0.0f));
+	texturedProgram.SetModelMatrix(modelMatrix);
+	DrawText(texturedProgram, asciiSpriteSheetTexture, "Betty's Score: " + to_string(gameState.Betty.playerScore), 0.2f, -0.125f);
+
+	// Render George's score (top right corner)
+	modelMatrix = glm::mat4(1.0f);
+	modelMatrix = glm::translate(modelMatrix, glm::vec3(0.4f, 1.6f, 0.0f));
+	texturedProgram.SetModelMatrix(modelMatrix);
+	DrawText(texturedProgram, asciiSpriteSheetTexture, "George's Score: " + to_string(gameState.George.playerScore), 0.2f, -0.125f);
 
 	playAgainButton.Render(texturedProgram);
 	mainMenuButton.Render(texturedProgram);
 	quitButton.Render(texturedProgram);
+
+	// Play again button text
+	modelMatrix = glm::mat4(1.0f);
+	modelMatrix = glm::translate(modelMatrix, glm::vec3(-0.35f, playAgainButton.position.y, 0.0f));
+	texturedProgram.SetModelMatrix(modelMatrix);
+	DrawText(texturedProgram, asciiSpriteSheetTexture, "Play Again", 0.15f, -0.075f);
+
+	// Main menu button text
+	modelMatrix = glm::mat4(1.0f);
+	modelMatrix = glm::translate(modelMatrix, glm::vec3(-0.3f, mainMenuButton.position.y, 0.0f));
+	texturedProgram.SetModelMatrix(modelMatrix);
+	DrawText(texturedProgram, asciiSpriteSheetTexture, "Main Menu", 0.15f, -0.075);
+
+	// Quit button text
+	modelMatrix = glm::mat4(1.0f);
+	modelMatrix = glm::translate(modelMatrix, glm::vec3(-0.125f, quitButton.position.y, 0.0f));
+	texturedProgram.SetModelMatrix(modelMatrix);
+	DrawText(texturedProgram, asciiSpriteSheetTexture, "Quit", 0.15f, -0.07f);
 }
 
 void Render() {
