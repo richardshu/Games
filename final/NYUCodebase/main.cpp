@@ -40,6 +40,9 @@ ShaderProgram texturedProgram;  // For textured polygons
 const Uint8 *keys;
 glm::mat4 projectionMatrix, viewMatrix;
 
+Mix_Music* backgroundMusic;
+Mix_Chunk *fireSound;
+
 enum GameMode { MAIN_MENU, GAME_LEVEL, GAME_OVER };
 enum Direction { LEFT, RIGHT, UP, DOWN };
 enum EntityType { PLAYER, ENEMY, BULLET, PARTICLE, BUTTON};
@@ -134,7 +137,7 @@ void SheetSprite::Draw(ShaderProgram &program) {
 
 class Entity {
 public:
-	int playerScore = 0;
+	int playerScore;
 
 	void Update(float elapsed);
 	void Render(ShaderProgram &program);
@@ -293,7 +296,6 @@ struct GameState {
 	void ProcessEvents();
 	void Update(float elapsed);
 	void Render();
-	void Reset();
 };
 
 struct GameOverState {
@@ -380,9 +382,8 @@ void MainMenuState::Setup() {
 	setBackgroundTexture(backgroundTexture);
 
 	// Play background music
-	Mix_OpenAudio(44100, MIX_DEFAULT_FORMAT, 2, 4096);
-	Mix_Music* backgroundMusic = Mix_LoadMUS("assets/background_music.mp3");
-	Mix_PlayMusic(backgroundMusic, -1);
+	backgroundMusic = Mix_LoadMUS("assets/background_music.mp3");
+	Mix_PlayMusic(backgroundMusic, 1);
 
 	// Play button
 
@@ -503,6 +504,8 @@ void GameState::CreateBoom(SheetSprite &sheet, float x, float y) {
 }
 
 void GameState::Setup() {
+	fireSound = Mix_LoadWAV("assets/shootBulletSound.wav");
+
 	this->backgroundTexture = LoadTexture("assets/game_background.png");
 	this->LoadSprites();
 
@@ -510,6 +513,8 @@ void GameState::Setup() {
 	this->Betty.faceDirection = DOWN;
 	this->Betty.moveDirection = DOWN;
 	this->Betty.entityType = PLAYER;
+	this->Betty.playerScore = 0;
+	this->Betty.dead = false;
 	this->Betty.position = glm::vec3(-0.2f, 0.0f, 0.0f);
 	this->Betty.size = glm::vec3(0.25f, 0.25f, 1.0f);
 	this->Betty.velocity = glm::vec3(0.0f, 0.0f, 0.0f);
@@ -518,6 +523,8 @@ void GameState::Setup() {
 	this->George.faceDirection = DOWN;
 	this->George.moveDirection = DOWN;
 	this->George.entityType = PLAYER;
+	this->George.playerScore = 0;
+	this->George.dead = false;
 	this->George.position = glm::vec3(0.2f, 0.0f, 0.0f);
 	this->George.size = glm::vec3(0.25f, 0.25f, 1.0f);
 	this->George.velocity = glm::vec3(0.0f, 0.0f, 0.0f);
@@ -618,10 +625,10 @@ void Setup() {
 	glUseProgram(texturedProgram.programID);
 
 	keys = SDL_GetKeyboardState(NULL);
+	Mix_OpenAudio(44100, MIX_DEFAULT_FORMAT, 2, 4096);
 
-	mode = GAME_OVER; // Render the menu when the user opens the game
-	//mainMenuState.Setup();
-	gameOverState.Setup();
+	mode = MAIN_MENU; // Render the menu when the user opens the game
+	mainMenuState.Setup();
 }
 
 bool clicked(Entity &entity, float cursorX, float cursorY) {
@@ -646,13 +653,8 @@ void MainMenuState::ProcessEvents() {
 		float cursorX = (((float)event.button.x / 640.0f) * 3.554f) - 1.777f;
 		float cursorY = (((float)(640.0f - event.button.y) / 640.0f) * 3.554f) - 1.777f;
 
-		//if (clicked(playButton, cursorX, cursorY)) {
-			mode = GAME_LEVEL;
-			gameState.Setup();
-		//}
-	//	else if (clicked(quitButton, cursorX, cursorY)) {
-		//	done = true;
-		//}
+		mode = GAME_LEVEL;
+		gameState.Setup();
 	}
 }
 
@@ -735,6 +737,7 @@ void GameState::ProcessEvents() {
 			this->Betty.canShoot = false;
 			this->Betty.ShootBullet(this->BulletsBetty.at(this->Betty.bulletIndex % MAX_BULLETS));
 			this->Betty.bulletIndex++;
+			Mix_PlayChannel(-1, fireSound, 0);
 		}
 	}
 
@@ -809,6 +812,7 @@ void GameState::ProcessEvents() {
 			this->George.canShoot = false;
 			this->George.ShootBullet(this->BulletsGeorge.at(this->George.bulletIndex % MAX_BULLETS));
 			this->George.bulletIndex++;
+			Mix_PlayChannel(-1, fireSound, 0);
 		}
 	}
 }
@@ -825,17 +829,12 @@ void GameOverState::ProcessEvents() {
 		float cursorX = (((float)event.button.x / 640.0f) * 3.554f) - 1.777f;
 		float cursorY = (((float)(640.0f - event.button.y) / 640.0f) * 3.554f) - 1.777f;
 
-		/*playAgainButton.position.x = cursorX - playAgainButton.sprite.width;
-		playAgainButton.position.y = cursorY - playAgainButton.sprite.height / 2;*/
-
 		if (clicked(playAgainButton, cursorX, cursorY)) {
-			//reset();
 			Mix_RewindMusic();
 			mode = GAME_LEVEL;
 			gameState.Setup();
 		}
 		else if (clicked(mainMenuButton, cursorX, cursorY)) {
-			//reset();
 			Mix_RewindMusic();
 			mode = MAIN_MENU;
 			mainMenuState.Setup();
@@ -860,6 +859,16 @@ void ProcessEvents() {
 }
 
 void GameState::Update(float elapsed) {
+	if (this->Betty.dead && this->George.dead) {
+		this->BulletsBetty.clear();
+		this->BulletsGeorge.clear();
+		this->particles.clear();
+		this->enemies.clear();
+
+		mode = GAME_OVER;
+		gameOverState.Setup();
+	}
+
 	if (!this->Betty.dead && !this->George.dead) {
 		if (Betty.CollidesWith(George)) {
 			if (keys[SDL_SCANCODE_RIGHT] && this->Betty.collidedRight) {
@@ -921,7 +930,7 @@ void GameState::Update(float elapsed) {
 				this->enemies.erase(this->enemies.begin() + j);
 			}
 		}
-		if (this->BulletsBetty.at(i).CollidesWith(this->George)) {
+		if (this->BulletsBetty.at(i).CollidesWith(this->George) && !this->George.dead) {
 			this->George.sprite = skull;
 			this->George.dead = true;
 			this->BulletsBetty.at(i).position = glm::vec3(-1000.0f, 0.0f, 0.0f);
@@ -939,7 +948,7 @@ void GameState::Update(float elapsed) {
 				this->enemies.erase(this->enemies.begin() + j);
 			}
 		}
-		if (this->BulletsGeorge.at(i).CollidesWith(this->Betty)) {
+		if (this->BulletsGeorge.at(i).CollidesWith(this->Betty) && !this->Betty.dead) {
 			this->Betty.sprite = skull;
 			this->Betty.dead = true;
 			this->BulletsGeorge.at(i).position = glm::vec3(1000.0f, 0.0f, 0.0f);
@@ -1022,11 +1031,16 @@ void GameState::Render() {
 }
 
 void GameOverState::Render() {
-	// If player 1 has a higher score
 	glm::mat4 modelMatrix = glm::mat4(1.0f);
-	modelMatrix = glm::translate(modelMatrix, glm::vec3(-0.85f, 1.0f, 0.0f));
+	modelMatrix = glm::translate(modelMatrix, glm::vec3(-0.71f, 1.0f, 0.0f));
 	texturedProgram.SetModelMatrix(modelMatrix);
-	DrawText(texturedProgram, asciiSpriteSheetTexture, "Player 1 wins!", 0.3f, -0.16f);
+	if (gameState.Betty.playerScore > gameState.George.playerScore) {
+		DrawText(texturedProgram, asciiSpriteSheetTexture, "Betty wins!", 0.3f, -0.16f);
+	} else if (gameState.Betty.playerScore < gameState.George.playerScore){
+		DrawText(texturedProgram, asciiSpriteSheetTexture, "George wins!", 0.3f, -0.16f);
+	} else {
+		DrawText(texturedProgram, asciiSpriteSheetTexture, "It's a tie!", 0.3f, -0.16f);
+	}
 
 	playAgainButton.Render(texturedProgram);
 	mainMenuButton.Render(texturedProgram);
