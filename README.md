@@ -7,7 +7,7 @@ This is a collection of games made in C++, OpenGL, and GLM which includes:
 
 # Running the games
 1. Download Microsoft Visual Studio
-2. Navigate to the directory of the game you would like to play and open its .sln file (this should open the project in Miscrosoft Visual Studio)
+2. Navigate to the directory of the game you would like to play and open its .sln file (this should open the project in Microsoft Visual Studio)
 3. Click the green play button in Microsoft Visual Studio
 4. Have fun :)
 
